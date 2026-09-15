@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useProducts } from '../../hooks/useProducts'
+import { useSettings } from '../../hooks/useSettings'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { formatRupiah, CATEGORIES, getStockStatus } from '../../lib/format'
 import * as productsApi from '../../lib/productsApi'
+import * as settingsApi from '../../lib/settingsApi'
 import { useToast } from '../../components/Toast'
 import ProductForm from '../../components/admin/ProductForm'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -13,8 +15,23 @@ export default function Dashboard() {
   usePageTitle('Kelola Produk')
   const { session, signOut } = useAuth()
   const { products, loading, error, refetch } = useProducts()
+  const { onlineOrderingEnabled, loading: settingsLoading, refetch: refetchSettings } = useSettings()
   const { showToast } = useToast()
   const navigate = useNavigate()
+  const [togglingOrder, setTogglingOrder] = useState(false)
+
+  async function handleToggleOnlineOrdering() {
+    setTogglingOrder(true)
+    try {
+      await settingsApi.updateSettings({ online_ordering_enabled: !onlineOrderingEnabled })
+      await refetchSettings()
+      showToast(`Mode pesan online ${!onlineOrderingEnabled ? 'dinyalakan' : 'dimatikan'}.`)
+    } catch (err) {
+      showToast(err.message || 'Gagal mengubah pengaturan.', 'error')
+    } finally {
+      setTogglingOrder(false)
+    }
+  }
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('semua')
@@ -76,7 +93,32 @@ export default function Dashboard() {
             <h1 className="font-heading text-xl font-bold text-ink">Kelola Produk</h1>
             <p className="text-xs text-ink/50">{session?.user?.email}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2 text-sm">
+              <span className="text-ink/70">Mode Pesan Online</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={onlineOrderingEnabled}
+                disabled={settingsLoading || togglingOrder}
+                onClick={handleToggleOnlineOrdering}
+                className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+                  onlineOrderingEnabled ? 'bg-brand' : 'bg-ink/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                    onlineOrderingEnabled ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </label>
+            <Link
+              to="/admin/orders"
+              className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+            >
+              Kelola Pesanan
+            </Link>
             <a
               href="/"
               target="_blank"

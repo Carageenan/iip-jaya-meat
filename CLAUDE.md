@@ -4,16 +4,29 @@
 - React 18 + Vite, JavaScript (bukan TypeScript), file .jsx
 - Tailwind CSS v4 via @tailwindcss/vite. Tidak ada tailwind.config.js.
 - react-router-dom v6+ untuk routing
-- Supabase: Auth (email+password), Database (tabel products), Storage (bucket product-images)
+- Supabase: Auth (email+password), Database (tabel products, settings, orders, order_items), Storage (bucket product-images)
 - Supabase client ada di src/lib/supabaseClient.js, baca env VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY
 
 ## Struktur
 - src/components: komponen reusable (Navbar, Footer, ProductCard, dll)
-- src/pages: halaman publik (Home, Tentang, Produk, Kontak)
-- src/pages/admin: halaman admin (Login, Dashboard)
-- src/lib: supabaseClient.js, helper (format rupiah, dll)
-- src/hooks: custom hooks (useAuth, useProducts)
+- src/pages: halaman publik (Home, Tentang, Produk, Kontak, Cart, Checkout)
+- src/pages/admin: halaman admin (Login, Dashboard, Orders)
+- src/lib: supabaseClient.js, productsApi.js, ordersApi.js, settingsApi.js, helper (format rupiah, dll)
+- src/hooks: custom hooks (useAuth, useProducts, useSettings, useCart)
 - konten/: aset mentah (foto, teks) dari pemilik. Foto yang dipakai dicopy ke public/
+
+## Fitur Pesan Online (toggle)
+- Tabel `settings` (satu baris, id=1, kolom `online_ordering_enabled`) menyimpan status nyala/mati fitur.
+- Diakses lewat src/hooks/useSettings.jsx (SettingsProvider, dibungkus di App.jsx). Hook `useSettings()` return `{ onlineOrderingEnabled, loading, refetch }`.
+- Kalau tabel settings belum ada / gagal fetch, fallback ke `false` (mati) — aman, situs tetap jalan seperti sebelum fitur ini ada.
+- Admin toggle di /admin/dashboard (header, switch "Mode Pesan Online") lewat settingsApi.updateSettings().
+- Saat NYALA: ProductCard tampilkan tombol "Tambah ke Keranjang" (selain tombol WhatsApp yang tetap ada), Navbar tampilkan ikon keranjang + badge jumlah item.
+- Saat MATI: tampilan sama persis seperti sebelum fitur ini dibuat (hanya tombol WhatsApp).
+- Keranjang (src/hooks/useCart.jsx, CartProvider) disimpan di localStorage per browser, key `iip-jaya-meat-cart`. Bukan disinkron ke server.
+- Alur customer: /produk → tambah ke keranjang → /keranjang (ubah qty, hapus) → /checkout (isi nama/WA/alamat/catatan) → submit bikin baris di tabel `orders` + `order_items` lewat ordersApi.createOrder() → tampil halaman sukses dengan tombol "Konfirmasi via WhatsApp" (pesan otomatis terisi ringkasan order).
+- TIDAK ADA pembayaran online. Pesanan cuma tercatat, admin konfirmasi & koordinasi bayar manual (transfer/COD) sama seperti alur WA biasa.
+- RLS orders/order_items: publik (anon) boleh INSERT saja (bikin pesanan), tidak bisa SELECT/UPDATE/DELETE punya orang lain. Admin (authenticated) full akses lewat /admin/orders (src/pages/admin/Orders.jsx) — lihat detail item, ubah status (baru/diproses/selesai/dibatalkan) lewat ordersApi.updateOrderStatus().
+- Migrasi SQL fitur ini ada di migrasi-online-order.sql (root project, sebelah folder iip-jaya-meat), harus dijalankan manual di Supabase SQL Editor.
 
 ## Aturan
 - Semua teks UI Bahasa Indonesia.

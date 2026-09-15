@@ -30,3 +30,22 @@ export function getStockStatus(product) {
   }
   return { label: 'Tersedia', className: 'bg-green-100 text-green-700' }
 }
+
+export const ORDER_STATUSES = [
+  { value: 'baru', label: 'Baru', className: 'bg-blue-100 text-blue-700' },
+  { value: 'diproses', label: 'Diproses', className: 'bg-amber-100 text-amber-700' },
+  { value: 'selesai', label: 'Selesai', className: 'bg-green-100 text-green-700' },
+  { value: 'dibatalkan', label: 'Dibatalkan', className: 'bg-red-100 text-red-700' },
+]
+
+export function getOrderStatusMeta(status) {
+  return ORDER_STATUSES.find((s) => s.value === status) ?? ORDER_STATUSES[0]
+}
+
+export function formatDateTime(isoString) {
+  if (!isoString) return '-'
+  return new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(isoString))
+}
