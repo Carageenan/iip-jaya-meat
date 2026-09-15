@@ -1,4 +1,18 @@
-export default function ConfirmDialog({ title, message, onConfirm, onCancel, confirming }) {
+export default function ConfirmDialog({
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  confirming,
+  confirmLabel = 'Hapus',
+  confirmingLabel = 'Menghapus...',
+  tone = 'danger',
+}) {
+  const toneClass =
+    tone === 'danger'
+      ? 'bg-red-600 hover:bg-red-700'
+      : 'bg-brand hover:bg-brand-dark'
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4">
       <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
@@ -16,9 +30,9 @@ export default function ConfirmDialog({ title, message, onConfirm, onCancel, con
             type="button"
             onClick={onConfirm}
             disabled={confirming}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${toneClass}`}
           >
-            {confirming ? 'Menghapus...' : 'Hapus'}
+            {confirming ? confirmingLabel : confirmLabel}
           </button>
         </div>
       </div>

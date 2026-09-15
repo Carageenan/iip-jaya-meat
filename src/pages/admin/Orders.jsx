@@ -2,8 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useToast } from '../../components/Toast'
+import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { formatRupiah, formatDateTime, ORDER_STATUSES, getOrderStatusMeta } from '../../lib/format'
 import * as ordersApi from '../../lib/ordersApi'
+
+const SORT_OPTIONS = [
+  { value: 'terbaru', label: 'Terbaru' },
+  { value: 'terlama', label: 'Terlama' },
+  { value: 'total_tertinggi', label: 'Total Tertinggi' },
+  { value: 'total_terendah', label: 'Total Terendah' },
+]
 
 export default function Orders() {
   usePageTitle('Kelola Pesanan')
@@ -12,9 +20,14 @@ export default function Orders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('semua')
+  const [sortBy, setSortBy] = useState('terbaru')
   const [expandedId, setExpandedId] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  const [pendingStatus, setPendingStatus] = useState(null) // { order, status }
+  const [deleting, setDeleting] = useState(null) // order
+  const [removing, setRemoving] = useState(false)
 
   async function refetch() {
     setLoading(true)
@@ -34,11 +47,39 @@ export default function Orders() {
   }, [])
 
   const filtered = useMemo(() => {
-    if (statusFilter === 'semua') return orders
-    return orders.filter((o) => o.status === statusFilter)
-  }, [orders, statusFilter])
+    let result = orders
 
-  async function handleStatusChange(order, status) {
+    if (statusFilter !== 'semua') {
+      result = result.filter((o) => o.status === statusFilter)
+    }
+
+    const q = search.trim().toLowerCase()
+    if (q) {
+      result = result.filter(
+        (o) => o.customer_name.toLowerCase().includes(q) || o.customer_phone.toLowerCase().includes(q)
+      )
+    }
+
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case 'terlama':
+          return new Date(a.created_at) - new Date(b.created_at)
+        case 'total_tertinggi':
+          return b.total - a.total
+        case 'total_terendah':
+          return a.total - b.total
+        case 'terbaru':
+        default:
+          return new Date(b.created_at) - new Date(a.created_at)
+      }
+    })
+
+    return result
+  }, [orders, statusFilter, search, sortBy])
+
+  async function confirmStatusChange() {
+    if (!pendingStatus) return
+    const { order, status } = pendingStatus
     setBusyId(order.id)
     try {
       await ordersApi.updateOrderStatus(order.id, status)
@@ -48,6 +89,23 @@ export default function Orders() {
       showToast(err.message || 'Gagal memperbarui status.', 'error')
     } finally {
       setBusyId(null)
+      setPendingStatus(null)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    setRemoving(true)
+    try {
+      await ordersApi.removeOrder(deleting.id)
+      setOrders((prev) => prev.filter((o) => o.id !== deleting.id))
+      showToast('Pesanan dihapus.')
+      setDeleting(null)
+      if (expandedId === deleting.id) setExpandedId(null)
+    } catch (err) {
+      showToast(err.message || 'Gagal menghapus pesanan.', 'error')
+    } finally {
+      setRemoving(false)
     }
   }
 
@@ -61,18 +119,38 @@ export default function Orders() {
               ← Kembali ke Kelola Produk
             </Link>
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"
-          >
-            <option value="semua">Semua Status</option>
-            {ORDER_STATUSES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari nama / nomor WA..."
+              className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"
+            >
+              <option value="semua">Semua Status</option>
+              {ORDER_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"
+            >
+              {SORT_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  Urutkan: {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </header>
 
@@ -88,7 +166,9 @@ export default function Orders() {
             Gagal memuat pesanan: {error}
           </div>
         ) : filtered.length === 0 ? (
-          <p className="py-12 text-center text-ink/50">Belum ada pesanan.</p>
+          <p className="py-12 text-center text-ink/50">
+            {orders.length === 0 ? 'Belum ada pesanan.' : 'Tidak ada pesanan yang cocok.'}
+          </p>
         ) : (
           <div className="space-y-3">
             {filtered.map((order) => {
@@ -143,23 +223,33 @@ export default function Orders() {
                         </div>
                       )}
 
-                      <div className="mt-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">Ubah Status</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {ORDER_STATUSES.map((s) => (
-                            <button
-                              key={s.value}
-                              type="button"
-                              disabled={busyId === order.id || order.status === s.value}
-                              onClick={() => handleStatusChange(order, s.value)}
-                              className={`rounded-full px-3 py-1.5 text-xs font-medium disabled:cursor-default ${
-                                order.status === s.value ? s.className : 'bg-ink/5 text-ink/60 hover:bg-ink/10'
-                              }`}
-                            >
-                              {s.label}
-                            </button>
-                          ))}
+                      <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">Ubah Status</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {ORDER_STATUSES.map((s) => (
+                              <button
+                                key={s.value}
+                                type="button"
+                                disabled={busyId === order.id || order.status === s.value}
+                                onClick={() => setPendingStatus({ order, status: s.value })}
+                                className={`rounded-full px-3 py-1.5 text-xs font-medium disabled:cursor-default ${
+                                  order.status === s.value ? s.className : 'bg-ink/5 text-ink/60 hover:bg-ink/10'
+                                }`}
+                              >
+                                {s.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeleting(order)}
+                          className="text-sm font-medium text-red-600 hover:underline"
+                        >
+                          Hapus Pesanan
+                        </button>
                       </div>
                     </div>
                   )}
@@ -169,6 +259,31 @@ export default function Orders() {
           </div>
         )}
       </main>
+
+      {pendingStatus && (
+        <ConfirmDialog
+          title="Ubah Status Pesanan"
+          message={`Ubah status pesanan "${pendingStatus.order.customer_name}" jadi "${
+            getOrderStatusMeta(pendingStatus.status).label
+          }"?`}
+          onConfirm={confirmStatusChange}
+          onCancel={() => setPendingStatus(null)}
+          confirming={busyId === pendingStatus.order.id}
+          confirmLabel="Ubah Status"
+          confirmingLabel="Menyimpan..."
+          tone="brand"
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Hapus Pesanan"
+          message={`Hapus pesanan "${deleting.customer_name}"? Tindakan ini tidak bisa dibatalkan.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleting(null)}
+          confirming={removing}
+        />
+      )}
     </div>
   )
 }
