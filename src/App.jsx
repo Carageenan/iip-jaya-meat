@@ -17,6 +17,7 @@ import Dashboard from './pages/admin/Dashboard'
 import Orders from './pages/admin/Orders'
 import Kasir from './pages/admin/Kasir'
 import StockLog from './pages/admin/StockLog'
+import Recap from './pages/admin/Recap'
 
 function App() {
   return (
@@ -66,6 +67,14 @@ function App() {
                   element={
                     <ProtectedRoute requireAdmin>
                       <StockLog />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/recap"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <Recap />
                     </ProtectedRoute>
                   }
                 />

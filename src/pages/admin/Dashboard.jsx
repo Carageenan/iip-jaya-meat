@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useProducts } from '../../hooks/useProducts'
@@ -7,9 +7,26 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { formatRupiah, CATEGORIES, getStockStatus } from '../../lib/format'
 import * as productsApi from '../../lib/productsApi'
 import * as settingsApi from '../../lib/settingsApi'
+import * as ordersApi from '../../lib/ordersApi'
 import { useToast } from '../../components/Toast'
 import ProductForm from '../../components/admin/ProductForm'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
+
+function SummaryCard({ label, value, tone = 'default', children }) {
+  const toneClass =
+    tone === 'warning'
+      ? 'border-amber-200 bg-amber-50'
+      : tone === 'danger'
+        ? 'border-red-200 bg-red-50'
+        : 'border-ink/10 bg-white'
+  return (
+    <div className={`rounded-xl border p-4 ${toneClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">{label}</p>
+      <p className="mt-1 font-heading text-2xl font-bold text-ink">{value}</p>
+      {children}
+    </div>
+  )
+}
 
 function SettingToggle({ label, enabled, onToggle, disabled }) {
   return (
@@ -83,6 +100,39 @@ export default function Dashboard() {
   const [deleting, setDeleting] = useState(null) // product to delete
   const [busyId, setBusyId] = useState(null)
   const [removing, setRemoving] = useState(false)
+
+  const [orderSummary, setOrderSummary] = useState([])
+  const [summaryLoading, setSummaryLoading] = useState(true)
+
+  useEffect(() => {
+    ordersApi
+      .getOrdersSummary()
+      .then(setOrderSummary)
+      .catch(() => setOrderSummary([]))
+      .finally(() => setSummaryLoading(false))
+  }, [])
+
+  const newOrdersCount = useMemo(() => orderSummary.filter((o) => o.status === 'baru').length, [orderSummary])
+
+  const unfinishedOrdersCount = useMemo(
+    () => orderSummary.filter((o) => o.status === 'baru' || o.status === 'diproses').length,
+    [orderSummary]
+  )
+
+  const unpaidTotal = useMemo(
+    () =>
+      orderSummary
+        .filter((o) => o.payment_type === 'dp' && o.status !== 'dibatalkan')
+        .reduce((sum, o) => sum + Math.max(o.total - (o.amount_paid ?? 0), 0), 0),
+    [orderSummary]
+  )
+
+  // Gabung produk yang stoknya < 100 (masih dijual tapi mepet) dan yang ditandai Habis.
+  const stockAttention = useMemo(() => {
+    return products
+      .filter((p) => !p.is_available || (p.stock ?? 0) < 100)
+      .map((p) => ({ ...p, habis: !p.is_available }))
+  }, [products])
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -161,6 +211,12 @@ export default function Dashboard() {
             >
               Riwayat Stok
             </Link>
+            <Link
+              to="/admin/recap"
+              className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+            >
+              Recap
+            </Link>
             {cashierEnabled && (
               <Link
                 to="/admin/kasir"
@@ -189,7 +245,46 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Link to="/admin/orders" className="block">
+            <SummaryCard label="Pesanan Baru" value={summaryLoading ? '...' : newOrdersCount} />
+          </Link>
+          <Link to="/admin/orders" className="block">
+            <SummaryCard label="Belum Selesai" value={summaryLoading ? '...' : unfinishedOrdersCount} />
+          </Link>
+          <SummaryCard
+            label="Stok Perlu Perhatian"
+            value={summaryLoading ? '...' : stockAttention.length}
+            tone={stockAttention.length > 0 ? 'warning' : 'default'}
+          >
+            {stockAttention.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {stockAttention.slice(0, 4).map((p) => (
+                  <span
+                    key={p.id}
+                    className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-amber-800"
+                  >
+                    {p.name} {p.habis ? '(Habis)' : `(${p.stock})`}
+                  </span>
+                ))}
+                {stockAttention.length > 4 && (
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                    +{stockAttention.length - 4} lagi
+                  </span>
+                )}
+              </div>
+            )}
+          </SummaryCard>
+          <Link to="/admin/orders" className="block">
+            <SummaryCard
+              label="Belum Lunas (DP)"
+              value={summaryLoading ? '...' : formatRupiah(unpaidTotal)}
+              tone={unpaidTotal > 0 ? 'danger' : 'default'}
+            />
+          </Link>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-3">
             <input
               type="text"

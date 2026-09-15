@@ -43,6 +43,17 @@ export async function getAllOrders() {
   return data
 }
 
+// Versi ringan buat ringkasan/laporan (bubble di Kelola Produk, halaman Recap) --
+// gak perlu order_items/order_status_logs, cukup kolom yang dipake buat ngitung.
+export async function getOrdersSummary() {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, status, source, payment_type, total, amount_paid, created_at')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
 export async function updateOrderStatus(id, status) {
   const { data, error } = await supabase.from('orders').update({ status }).eq('id', id).select().single()
   if (error) throw error

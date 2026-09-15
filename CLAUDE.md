@@ -72,3 +72,9 @@
 - Font: Inter untuk body, Playfair Display untuk heading (Google Fonts).
 - Gaya visual: bersih, foto besar, banyak whitespace, tombol solid warna brand.
 - Jangan install library UI tambahan (MUI, shadcn, dll) tanpa diminta.
+
+## Ringkasan & Recap (admin-only)
+- Bubble ringkasan tampil di atas Kelola Produk (langsung kelihatan pas admin login): Pesanan Baru, Belum Selesai, Stok Perlu Perhatian (gabungan produk stok<100 + habis, ada nama produknya), Belum Lunas (total sisa DP semua order kasir yang belum dibatalkan).
+- Data bubble diambil lewat ordersApi.getOrdersSummary() -- versi ringan dari getAllOrders(), cuma kolom yang dipakai buat ngitung (gak perlu order_items/logs).
+- Halaman /admin/recap (Recap.jsx): filter periode (Hari Ini/Minggu Ini/Bulan Ini/Semua Waktu, dihitung dari created_at), tampilin Total Uang Masuk (sum amount_paid dari order kasir non-dibatalkan), jumlah transaksi kasir, total belum lunas, dan nilai pesanan Web terpisah (karena web gak ada pembayaran online, nilainya cuma perkiraan bukan uang pasti masuk) + breakdown jumlah per status.
+- Kedua halaman ini murni baca data, gak ada tulis apa pun -- aman dipakai kapan aja.
