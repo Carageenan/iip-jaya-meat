@@ -21,7 +21,7 @@ import Recap from './pages/admin/Recap'
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
         <SettingsProvider>
           <CartProvider>

@@ -9,6 +9,23 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
     <title>IIP JAYA MEAT</title>
+    <script type="text/javascript">
+      // GitHub Pages statis, gak ada server buat rewrite path SPA -- jadi kalau
+      // orang buka/refresh langsung ke path kayak /produk, GitHub balikin 404.html
+      // (lihat public/404.html), yang nyimpen path aslinya ke query string terus
+      // redirect balik kesini. Script ini yang mulihin path asli itu sebelum React
+      // Router jalan, biar URL-nya balik bersih. https://github.com/rafgraph/spa-github-pages
+      ;(function (l) {
+        if (l.search[1] === '/') {
+          const decoded = l.search
+            .slice(1)
+            .split('&')
+            .map((s) => s.replace(/~and~/g, '&'))
+            .join('?')
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash)
+        }
+      })(window.location)
+    </script>
   </head>
   <body>
     <div id="root"></div>

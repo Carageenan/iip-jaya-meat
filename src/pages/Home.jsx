@@ -3,6 +3,7 @@ import { useProducts } from '../hooks/useProducts'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { siteConfig, buildWhatsappUrl } from '../lib/siteConfig'
 import ProductCard from '../components/ProductCard'
+import { assetUrl } from '../lib/assetUrl'
 
 const features = [
   {
@@ -38,7 +39,7 @@ export default function Home() {
     <div>
       <section className="relative flex min-h-[70vh] items-center justify-center overflow-hidden bg-ink text-white">
         <img
-          src="/images/hero.jpg"
+          src={assetUrl('/images/hero.jpg')}
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-50"
           onError={(e) => {

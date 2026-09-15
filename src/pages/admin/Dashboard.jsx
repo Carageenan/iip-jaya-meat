@@ -11,6 +11,7 @@ import { useToast } from '../../components/Toast'
 import ProductForm from '../../components/admin/ProductForm'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import SummaryBubbles from '../../components/admin/SummaryBubbles'
+import { assetUrl } from '../../lib/assetUrl'
 
 function SettingToggle({ label, enabled, onToggle, disabled }) {
   return (
@@ -177,7 +178,7 @@ export default function Dashboard() {
               </Link>
             )}
             <a
-              href="/"
+              href={assetUrl('/')}
               target="_blank"
               rel="noreferrer"
               className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"

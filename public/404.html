@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <title>IIP JAYA MEAT</title>
+    <script type="text/javascript">
+      // GitHub Pages ngasih file ini buat SEMUA path yang gak match file statis
+      // (misal /produk, /admin/login). Simpen path aslinya ke query string terus
+      // redirect ke index.html -- index.html punya script pasangannya yang
+      // mulihin path ini balik sebelum React Router jalan.
+      // https://github.com/rafgraph/spa-github-pages
+      var pathSegmentsToKeep = 1 // "/iip-jaya-meat" -- nama repo, base path project site ini
+
+      var l = window.location
+      l.replace(
+        l.protocol +
+          '//' +
+          l.hostname +
+          (l.port ? ':' + l.port : '') +
+          l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') +
+          '/?/' +
+          l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash
+      )
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { siteConfig } from '../../lib/siteConfig'
+import { assetUrl } from '../../lib/assetUrl'
 
 export default function Login() {
   usePageTitle('Login Admin')
@@ -35,7 +36,7 @@ export default function Login() {
       <div className="w-full max-w-sm rounded-xl border border-ink/10 bg-white p-8 shadow-sm">
         <div className="text-center">
           <img
-            src="/logo.png"
+            src={assetUrl('/logo.png')}
             alt={siteConfig.name}
             className="mx-auto h-12 w-12 object-contain"
             onError={(e) => {

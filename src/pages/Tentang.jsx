@@ -1,5 +1,6 @@
 import { usePageTitle } from '../hooks/usePageTitle'
 import { siteConfig } from '../lib/siteConfig'
+import { assetUrl } from '../lib/assetUrl'
 
 export default function Tentang() {
   usePageTitle('Tentang Kami')
@@ -10,7 +11,7 @@ export default function Tentang() {
 
       <div className="mt-8 overflow-hidden rounded-xl bg-ink/5">
         <img
-          src="/images/tentang.jpg"
+          src={assetUrl('/images/tentang.jpg')}
           alt={siteConfig.name}
           className="h-64 w-full object-cover"
           onError={(e) => {

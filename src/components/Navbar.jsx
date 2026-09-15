@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { buildWhatsappUrl, siteConfig } from '../lib/siteConfig'
 import { useSettings } from '../hooks/useSettings'
 import { useCart } from '../hooks/useCart'
+import { assetUrl } from '../lib/assetUrl'
 
 const links = [
   { to: '/', label: 'Beranda' },
@@ -45,7 +46,7 @@ export default function Navbar() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
         <NavLink to="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
           <img
-            src="/logo.png"
+            src={assetUrl('/logo.png')}
             alt={siteConfig.name}
             className="h-9 w-9 object-contain"
             onError={(e) => {
