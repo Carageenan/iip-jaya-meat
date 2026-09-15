@@ -118,7 +118,9 @@ export default function Orders() {
     setBusyId(order.id)
     try {
       await ordersApi.updateOrderStatus(order.id, status)
-      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status } : o)))
+      // Refetch (bukan cuma patch state lokal) biar Riwayat Status ikut kebaruin --
+      // baris log barunya ditulis trigger di database, bukan dari sini.
+      await refetch()
       showToast('Status pesanan diperbarui.')
     } catch (err) {
       showToast(err.message || 'Gagal memperbarui status.', 'error')
