@@ -135,9 +135,15 @@ export default function Orders() {
     }
   }
 
-  // Transaksi kasir wajib punya bukti transaksi sebelum boleh ditandai Selesai.
+  // Transaksi kasir wajib SEMUA baris pembayarannya punya bukti transaksi
+  // sebelum boleh ditandai Selesai -- bukan cukup salah satu cicilan aja.
+  // Cek langsung ke order_payments (bukan orders.proof_path, yang cuma cache
+  // "bukti terbaru yang ada" -- gak merepresentasikan "semua sudah lengkap").
   function needsProofBeforeComplete(order) {
-    return order.source === 'kasir' && !order.proof_path
+    if (order.source !== 'kasir') return false
+    const payments = order.order_payments || []
+    if (payments.length === 0) return true
+    return payments.some((p) => !p.proof_path)
   }
 
   // Kenapa tombol status s dikunci buat order ini -- null kalau tidak dikunci.
@@ -376,9 +382,12 @@ export default function Orders() {
                             </p>
                           </div>
 
-                          {!order.order_payments?.some((p) => p.proof_path) && (
+                          {needsProofBeforeComplete(order) && (
                             <p className="mt-2 text-xs text-amber-800">
-                              Belum ada bukti transaksi. Status tidak bisa ditandai Selesai sampai bukti diunggah.
+                              {order.order_payments?.length
+                                ? 'Masih ada cicilan yang belum ada bukti transaksi.'
+                                : 'Belum ada bukti transaksi.'}{' '}
+                              Status tidak bisa ditandai Selesai sampai semua cicilan punya bukti.
                             </p>
                           )}
 
