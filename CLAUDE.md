@@ -40,6 +40,19 @@
 - Kelola Pesanan (/admin/orders) sekarang bisa filter by sumber (Web/Kasir), badge sumber ditampilin di tiap baris, dan expand detail order dari kasir nampilin info pembayaran + tombol lihat/upload bukti.
 - Migrasi SQL: migrasi-kasir.sql (root project), harus dijalankan manual di Supabase SQL Editor.
 
+## Role: admin vs kasir
+- Tabel `profiles` (id = auth.users.id, kolom `role`: 'admin' | 'kasir', default 'kasir'). Diisi otomatis lewat trigger `on_auth_user_created` tiap ada user Supabase Auth baru -- jadi bikin akun kasir baru cukup lewat Authentication > Users > Add user seperti biasa, otomatis dapet role 'kasir', TIDAK perlu langkah tambahan.
+- Mau bikin admin kedua? Update manual lewat SQL Editor: `update public.profiles set role = 'admin' where id = (select id from auth.users where email = '...');`
+- `is_admin()` (Postgres function, security definer) dipakai di RLS policy & trigger buat ngecek role tanpa recursive RLS issue.
+- Kode: useAuth() sekarang juga return `{ role, isAdmin, roleLoading }`, di-fetch dari tabel `profiles` setelah session ada.
+- ProtectedRoute terima prop `requireAdmin` -- kalau true dan user bukan admin, di-redirect ke /admin/kasir. Dipakai di route /admin/dashboard dan /admin/orders (App.jsx). Route /admin/kasir tetap plain ProtectedRoute (admin ATAU kasir boleh masuk).
+- Kasir.jsx nyesuain header: link "Kelola Produk"/"Kelola Pesanan" cuma muncul kalau isAdmin, tombol "Keluar" selalu ada (kasir gapunya jalan lain buat logout).
+- PENTING: pembatasan ini bukan cuma di UI (sembunyiin link/tombol), tapi juga dikunci di level database lewat migrasi-roles.sql:
+  - Trigger `orders_restrict_status_change`: blokir UPDATE kolom `status` di tabel orders kecuali yang login admin (raise exception). Kasir tetap boleh INSERT order baru dan UPDATE `proof_path` (upload bukti), cuma statusnya doang yang dikunci.
+  - Policy DELETE di `orders`, dan policy INSERT/UPDATE/DELETE di `products`, dan policy UPDATE di `settings`: semua sekarang syaratnya `is_admin()`, bukan cuma `to authenticated` lagi.
+  - Jadi walaupun ada yang coba panggil API langsung (bukan lewat UI), tetep ketolak di database.
+- Migrasi SQL: migrasi-roles.sql (root project). WAJIB dijalankan manual di Supabase SQL Editor, dan berisi backfill role 'admin' buat akun admin yang udah ada duluan (dicari lewat email, di dalam file SQL-nya).
+
 ## Aturan
 - Semua teks UI Bahasa Indonesia.
 - Format harga pakai new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }). Helper di src/lib/format.js.

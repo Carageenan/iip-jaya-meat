@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useProducts } from '../../hooks/useProducts'
 import { useSettings } from '../../hooks/useSettings'
+import { useAuth } from '../../hooks/useAuth'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useToast } from '../../components/Toast'
 import { formatRupiah, CATEGORIES, PAYMENT_TYPES } from '../../lib/format'
@@ -12,6 +13,13 @@ export default function Kasir() {
   const { cashierEnabled, loading: settingsLoading } = useSettings()
   const { products, loading: productsLoading } = useProducts()
   const { showToast } = useToast()
+  const { session, isAdmin, signOut } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleSignOut() {
+    await signOut()
+    navigate('/admin/login')
+  }
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('semua')
@@ -128,11 +136,22 @@ export default function Kasir() {
     return (
       <div className="min-h-screen bg-cream">
         <header className="border-b border-ink/10 bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
-            <h1 className="font-heading text-xl font-bold text-ink">Kasir</h1>
-            <Link to="/admin/dashboard" className="text-xs text-brand hover:underline">
-              ← Kembali ke Kelola Produk
-            </Link>
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+            <div>
+              <h1 className="font-heading text-xl font-bold text-ink">Kasir</h1>
+              {isAdmin && (
+                <Link to="/admin/dashboard" className="text-xs text-brand hover:underline">
+                  ← Kembali ke Kelola Produk
+                </Link>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/80"
+            >
+              Keluar
+            </button>
           </div>
         </header>
         <main className="mx-auto max-w-xl px-4 py-16 text-center sm:px-6">
@@ -150,16 +169,33 @@ export default function Kasir() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div>
             <h1 className="font-heading text-xl font-bold text-ink">Kasir</h1>
-            <Link to="/admin/dashboard" className="text-xs text-brand hover:underline">
-              ← Kembali ke Kelola Produk
-            </Link>
+            <p className="text-xs text-ink/50">{session?.user?.email}</p>
           </div>
-          <Link
-            to="/admin/orders"
-            className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
-          >
-            Kelola Pesanan
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            {isAdmin && (
+              <>
+                <Link
+                  to="/admin/dashboard"
+                  className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+                >
+                  Kelola Produk
+                </Link>
+                <Link
+                  to="/admin/orders"
+                  className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+                >
+                  Kelola Pesanan
+                </Link>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/80"
+            >
+              Keluar
+            </button>
+          </div>
         </div>
       </header>
 

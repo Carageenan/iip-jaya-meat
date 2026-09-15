@@ -39,7 +39,7 @@ function App() {
                 <Route
                   path="/admin/dashboard"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute requireAdmin>
                       <Dashboard />
                     </ProtectedRoute>
                   }
@@ -47,7 +47,7 @@ function App() {
                 <Route
                   path="/admin/orders"
                   element={
-                    <ProtectedRoute>
+                    <ProtectedRoute requireAdmin>
                       <Orders />
                     </ProtectedRoute>
                   }
