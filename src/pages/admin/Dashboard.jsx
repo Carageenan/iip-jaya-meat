@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useProducts } from '../../hooks/useProducts'
 import { usePageTitle } from '../../hooks/usePageTitle'
-import { formatRupiah, CATEGORIES } from '../../lib/format'
+import { formatRupiah, CATEGORIES, getStockStatus } from '../../lib/format'
 import * as productsApi from '../../lib/productsApi'
 import { useToast } from '../../components/Toast'
 import ProductForm from '../../components/admin/ProductForm'
@@ -156,12 +156,15 @@ export default function Dashboard() {
                       <th className="px-4 py-3">Kategori</th>
                       <th className="px-4 py-3">Harga</th>
                       <th className="px-4 py-3">Satuan</th>
+                      <th className="px-4 py-3">Stok</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((p) => (
+                    {filtered.map((p) => {
+                      const status = getStockStatus(p)
+                      return (
                       <tr key={p.id} className="border-t border-ink/5">
                         <td className="px-4 py-3">
                           {p.image_url ? (
@@ -176,16 +179,16 @@ export default function Dashboard() {
                         </td>
                         <td className="px-4 py-3 text-ink/60">{formatRupiah(p.price)}</td>
                         <td className="px-4 py-3 text-ink/60">{p.unit}</td>
+                        <td className="px-4 py-3 text-ink/60">{p.stock ?? 0}</td>
                         <td className="px-4 py-3">
                           <button
                             type="button"
                             disabled={busyId === p.id}
                             onClick={() => handleToggleAvailable(p)}
-                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                              p.is_available ? 'bg-green-100 text-green-700' : 'bg-ink/10 text-ink/50'
-                            }`}
+                            title="Klik untuk tandai habis/tersedia manual"
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}
                           >
-                            {p.is_available ? 'Tersedia' : 'Habis'}
+                            {status.label}
                           </button>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -208,14 +211,17 @@ export default function Dashboard() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
 
               {/* Card view (mobile) */}
               <div className="space-y-3 md:hidden">
-                {filtered.map((p) => (
+                {filtered.map((p) => {
+                  const status = getStockStatus(p)
+                  return (
                   <div key={p.id} className="rounded-xl border border-ink/10 bg-white p-4">
                     <div className="flex gap-3">
                       {p.image_url ? (
@@ -226,7 +232,7 @@ export default function Dashboard() {
                       <div className="flex-1">
                         <p className="font-medium text-ink">{p.name}</p>
                         <p className="text-xs text-ink/50">
-                          {CATEGORIES.find((c) => c.value === p.category)?.label ?? p.category} · {p.unit}
+                          {CATEGORIES.find((c) => c.value === p.category)?.label ?? p.category} · {p.unit} · Stok {p.stock ?? 0}
                         </p>
                         <p className="mt-1 text-sm font-semibold text-brand">{formatRupiah(p.price)}</p>
                       </div>
@@ -234,11 +240,10 @@ export default function Dashboard() {
                         type="button"
                         disabled={busyId === p.id}
                         onClick={() => handleToggleAvailable(p)}
-                        className={`h-fit rounded-full px-2.5 py-1 text-xs font-medium ${
-                          p.is_available ? 'bg-green-100 text-green-700' : 'bg-ink/10 text-ink/50'
-                        }`}
+                        title="Klik untuk tandai habis/tersedia manual"
+                        className={`h-fit rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}
                       >
-                        {p.is_available ? 'Tersedia' : 'Habis'}
+                        {status.label}
                       </button>
                     </div>
                     <div className="mt-3 flex justify-end gap-4 border-t border-ink/5 pt-3">
@@ -261,7 +266,8 @@ export default function Dashboard() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </>
           )}

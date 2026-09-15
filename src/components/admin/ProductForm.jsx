@@ -9,6 +9,7 @@ const emptyForm = {
   category: 'sapi',
   price: '',
   unit: 'kg',
+  stock: 0,
   is_available: true,
   sort_order: 0,
   image_url: '',
@@ -37,6 +38,7 @@ export default function ProductForm({ product, onClose, onSaved }) {
     const errs = {}
     if (!form.name.trim()) errs.name = 'Nama produk wajib diisi.'
     if (form.price === '' || Number(form.price) < 0) errs.price = 'Harga wajib diisi dan tidak boleh negatif.'
+    if (form.stock === '' || Number(form.stock) < 0) errs.stock = 'Stok wajib diisi dan tidak boleh negatif.'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -62,6 +64,7 @@ export default function ProductForm({ product, onClose, onSaved }) {
         category: form.category,
         price: Number(form.price),
         unit: form.unit,
+        stock: Number(form.stock),
         is_available: form.is_available,
         sort_order: Number(form.sort_order) || 0,
         image_url: imageUrl || null,
@@ -165,14 +168,27 @@ export default function ProductForm({ product, onClose, onSaved }) {
               {errors.price && <p className="mt-1 text-xs text-red-600">{errors.price}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-ink/70">Urutan Tampil</label>
+              <label className="block text-sm font-medium text-ink/70">Stok</label>
               <input
                 type="number"
-                value={form.sort_order}
-                onChange={(e) => handleChange('sort_order', e.target.value)}
+                min="0"
+                value={form.stock}
+                onChange={(e) => handleChange('stock', e.target.value)}
                 className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm focus:border-brand focus:outline-none"
               />
+              {errors.stock && <p className="mt-1 text-xs text-red-600">{errors.stock}</p>}
+              <p className="mt-1 text-xs text-ink/40">Di bawah 100 tampil peringatan stok menipis.</p>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-ink/70">Urutan Tampil</label>
+            <input
+              type="number"
+              value={form.sort_order}
+              onChange={(e) => handleChange('sort_order', e.target.value)}
+              className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+            />
           </div>
 
           <label className="flex items-center gap-2 text-sm text-ink/70">

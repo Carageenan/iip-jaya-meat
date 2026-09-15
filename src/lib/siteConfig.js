@@ -4,14 +4,14 @@ export const siteConfig = {
   tagline: 'Daging Segar, Kualitas Terjaga',
   description:
     'IIP JAYA MEAT menyediakan daging sapi, ayam, dan kambing segar pilihan dengan harga bersaing untuk kebutuhan rumah tangga maupun usaha kuliner.',
-  address: 'Jl. Contoh Alamat No. 123, Kota Anda',
-  operatingHours: 'Setiap hari, 06.00 - 17.00 WIB',
-  whatsappNumber: '6281234567890',
+  address: 'Vila Echa, Jl. Cihideung Ilir No.1, RT.02/RW.03, Cihideung Ilir, Kec. Ciampea, Kabupaten Bogor, Jawa Barat 16620',
+  operatingHours: 'Setiap hari, 08.00 - 18.00 WIB',
+  whatsappNumber: '6285319893705',
   whatsappDefaultMessage: 'Halo IIP JAYA MEAT, saya mau tanya produk.',
   email: 'info@iipjayameat.com',
   mapsEmbedUrl:
-    'https://www.google.com/maps?q=Jakarta&output=embed',
-  mapsLinkUrl: 'https://maps.google.com',
+    'https://www.google.com/maps?q=-6.570109,106.7248267&z=17&output=embed',
+  mapsLinkUrl: 'https://maps.app.goo.gl/G1vNrhgv5Qk1pyJK7',
 }
 
 export function buildWhatsappUrl(message) {
