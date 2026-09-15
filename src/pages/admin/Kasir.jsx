@@ -8,6 +8,7 @@ import { useToast } from '../../components/Toast'
 import { formatRupiah, CATEGORIES, PAYMENT_TYPES } from '../../lib/format'
 import * as ordersApi from '../../lib/ordersApi'
 import * as productsApi from '../../lib/productsApi'
+import SummaryBubbles from '../../components/admin/SummaryBubbles'
 
 export default function Kasir() {
   usePageTitle('Kasir')
@@ -200,7 +201,9 @@ export default function Kasir() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="grid gap-6 lg:grid-cols-5">
+        <SummaryBubbles products={products} />
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-5">
           {/* Kolom produk */}
           <div className="lg:col-span-3">
             <div className="flex flex-wrap gap-3">
