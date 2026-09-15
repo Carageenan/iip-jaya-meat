@@ -71,6 +71,15 @@
 - Bubble ringkasan (SummaryBubbles, dipakai Dashboard + Kasir) nambah kartu ke-5 "Stok Perlu Diketahui", isinya stockLogsApi.getPendingStockApprovals() (yang approved=false), link ke /admin/riwayat-stok.
 - Migrasi SQL: migrasi-approval-stok.sql (root project).
 
+## Riwayat Pembayaran (DP dicicil, multi bukti transaksi)
+- DP realistis bisa dibayar bertahap (beberapa kali transfer), tiap cicilan punya bukti transaksi sendiri -- bukan satu `proof_path`/`amount_paid` doang kayak sebelumnya.
+- Tabel baru `order_payments`: `order_id`, `amount`, `proof_path` (nullable, bisa nyusul), `recorded_by`/`recorded_by_email` (diisi trigger dari sesi, bukan client), `created_at`. Jumlah (`amount`) gak bisa diedit setelah tercatat -- salah catat harus dihapus (admin only) terus catat ulang, bukan diubah.
+- `orders.amount_paid` dan `orders.proof_path` TETAP ADA, tapi sekarang jadi cache yang disinkronkan otomatis lewat trigger `sync_order_payment_totals()` tiap ada baris `order_payments` berubah -- `amount_paid` = total semua cicilan, `proof_path` = bukti transaksi terbaru yang ada. Jadi kode lama yang cuma baca dua kolom itu (bubble ringkasan, Recap, `needsProofBeforeComplete`) tetap jalan tanpa perlu diubah.
+- Order kasir SELALU punya minimal satu baris `order_payments` (dibikin otomatis pas `createCashierOrder()` -- cash = 1 baris sebesar total, DP = 1 baris sebesar DP awal).
+- Nyatet pembayaran baru (cicilan/pelunasan) lewat `ordersApi.addOrderPayment()`, dari Kelola Pesanan (Orders.jsx) -> tombol "+ Tambah Pembayaran" muncul selama order masih ada sisa tagihan. Bukti transaksi opsional saat nyatet, bisa nyusul lewat "Unggah Bukti" per baris (`ordersApi.attachPaymentProof()`).
+- Hapus baris pembayaran (koreksi salah catat) lewat `ordersApi.removeOrderPayment()`, admin-only (RLS `is_admin()`), dikunci juga di UI (tombol "Hapus" cuma nongol buat admin).
+- Migrasi SQL: migrasi-multi-payment.sql (root project), termasuk backfill order kasir lama jadi satu baris `order_payments` masing-masing.
+
 ## Aturan
 - Semua teks UI Bahasa Indonesia.
 - Format harga pakai new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }). Helper di src/lib/format.js.

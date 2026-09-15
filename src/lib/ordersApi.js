@@ -33,11 +33,11 @@ export async function createOrder({ customer, items, total }) {
 }
 
 // Dipanggil dari admin/kasir (harus login) -> butuh baca semua order + itemnya
-// + riwayat perubahan status-nya sekalian (biar ga perlu fetch terpisah per order).
+// + riwayat perubahan status & pembayarannya sekalian (biar ga perlu fetch terpisah per order).
 export async function getAllOrders() {
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items(*), order_status_logs(*)')
+    .select('*, order_items(*), order_status_logs(*), order_payments(*)')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data
@@ -99,17 +99,42 @@ export async function getProofUrl(path) {
   return data.signedUrl
 }
 
-// Tempel bukti transaksi ke order kasir yang udah ada (belum ada foto pas dibuat).
-export async function attachProof(orderId, file) {
-  const path = await uploadProof(file)
+// --- Riwayat pembayaran (order_payments) --------------------------------
+// DP bisa dicicil beberapa kali, tiap baris punya jumlah + bukti sendiri.
+// orders.amount_paid & orders.proof_path otomatis disinkronkan trigger
+// database tiap baris ini berubah -- jadi kode yang cuma baca dua kolom itu
+// (bubble ringkasan, Recap, needsProofBeforeComplete) tetap jalan apa adanya.
+
+// Catat pembayaran baru buat order yang udah ada (DP awal, cicilan
+// berikutnya, atau pelunasan). recorded_by/email diisi trigger dari sesi.
+export async function addOrderPayment(orderId, amount, file) {
+  const proofPath = file ? await uploadProof(file) : null
   const { data, error } = await supabase
-    .from('orders')
-    .update({ proof_path: path })
-    .eq('id', orderId)
+    .from('order_payments')
+    .insert({ order_id: orderId, amount, proof_path: proofPath })
     .select()
     .single()
   if (error) throw error
   return data
+}
+
+// Tempel bukti transaksi ke baris pembayaran yang belum ada fotonya.
+export async function attachPaymentProof(paymentId, file) {
+  const path = await uploadProof(file)
+  const { data, error } = await supabase
+    .from('order_payments')
+    .update({ proof_path: path })
+    .eq('id', paymentId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// Hapus baris pembayaran yang salah catat (admin only, dikunci RLS).
+export async function removeOrderPayment(id) {
+  const { error } = await supabase.from('order_payments').delete().eq('id', id)
+  if (error) throw error
 }
 
 // Admin sudah login, jadi boleh .select() balik hasil insert (beda dari checkout publik).
@@ -117,6 +142,8 @@ export async function attachProof(orderId, file) {
 // sebagai "baru" -- kasir/admin wajib upload bukti dulu (lewat halaman ini atau Kelola
 // Pesanan) baru bisa ditandai Selesai. Lihat juga Orders.jsx yang mengunci tombol Selesai.
 export async function createCashierOrder({ customer, items, total, paymentType, amountPaid, proofPath }) {
+  const initialAmount = paymentType === 'dp' ? amountPaid : total
+
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({
@@ -126,12 +153,17 @@ export async function createCashierOrder({ customer, items, total, paymentType, 
       status: proofPath ? 'selesai' : 'baru',
       total,
       payment_type: paymentType,
-      amount_paid: paymentType === 'dp' ? amountPaid : total,
-      proof_path: proofPath || null,
     })
     .select()
     .single()
   if (orderError) throw orderError
+
+  // Baris pembayaran pertama -- trigger database langsung ngisi
+  // orders.amount_paid/proof_path dari sini, gak perlu diisi manual di atas.
+  const { error: paymentError } = await supabase
+    .from('order_payments')
+    .insert({ order_id: order.id, amount: initialAmount, proof_path: proofPath || null })
+  if (paymentError) throw paymentError
 
   const orderItems = items.map((item) => ({
     order_id: order.id,
