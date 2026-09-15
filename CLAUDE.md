@@ -45,13 +45,21 @@
 - Mau bikin admin kedua? Update manual lewat SQL Editor: `update public.profiles set role = 'admin' where id = (select id from auth.users where email = '...');`
 - `is_admin()` (Postgres function, security definer) dipakai di RLS policy & trigger buat ngecek role tanpa recursive RLS issue.
 - Kode: useAuth() sekarang juga return `{ role, isAdmin, roleLoading }`, di-fetch dari tabel `profiles` setelah session ada.
-- ProtectedRoute terima prop `requireAdmin` -- kalau true dan user bukan admin, di-redirect ke /admin/kasir. Dipakai di route /admin/dashboard dan /admin/orders (App.jsx). Route /admin/kasir tetap plain ProtectedRoute (admin ATAU kasir boleh masuk).
-- Kasir.jsx nyesuain header: link "Kelola Produk"/"Kelola Pesanan" cuma muncul kalau isAdmin, tombol "Keluar" selalu ada (kasir gapunya jalan lain buat logout).
-- PENTING: pembatasan ini bukan cuma di UI (sembunyiin link/tombol), tapi juga dikunci di level database lewat migrasi-roles.sql:
-  - Trigger `orders_restrict_status_change`: blokir UPDATE kolom `status` di tabel orders kecuali yang login admin (raise exception). Kasir tetap boleh INSERT order baru dan UPDATE `proof_path` (upload bukti), cuma statusnya doang yang dikunci.
-  - Policy DELETE di `orders`, dan policy INSERT/UPDATE/DELETE di `products`, dan policy UPDATE di `settings`: semua sekarang syaratnya `is_admin()`, bukan cuma `to authenticated` lagi.
-  - Jadi walaupun ada yang coba panggil API langsung (bukan lewat UI), tetep ketolak di database.
-- Migrasi SQL: migrasi-roles.sql (root project). WAJIB dijalankan manual di Supabase SQL Editor, dan berisi backfill role 'admin' buat akun admin yang udah ada duluan (dicari lewat email, di dalam file SQL-nya).
+- ProtectedRoute terima prop `requireAdmin` -- kalau true dan user bukan admin, di-redirect ke /admin/kasir. Dipakai HANYA di /admin/dashboard dan /admin/riwayat-stok (App.jsx). Route /admin/orders dan /admin/kasir dua-duanya bisa diakses admin MAUPUN kasir (kasir emang perlu ke situ buat kerja sehari-hari), dikunci per-aksi di dalam halamannya, bukan diblokir di level route.
+- Yang boleh dilakukan kasir vs admin di /admin/orders (Kelola Pesanan):
+  - Kasir: lihat semua pesanan, cari/filter/sortir, upload bukti transaksi, ubah status TAPI cuma ke 'baru' atau 'diproses'.
+  - Admin: semua itu plus ubah status ke 'selesai'/'dibatalkan', dan hapus pesanan.
+  - Logic pengunci tombol status ada di `statusLockReason()` (Orders.jsx) -- gabungan dua alasan: role (KASIR_ALLOWED_STATUSES) dan syarat bukti transaksi buat 'selesai' (needsProofBeforeComplete).
+- Kasir bisa ubah STOK produk (lewat tombol "Stok N" di tiap baris produk, Kasir.jsx -> StockAdjustModal, input jumlah perubahan/delta bukan nilai absolut), tapi TIDAK bisa ubah field produk lain (nama/harga/foto/kategori/dll) -- itu masih lewat Dashboard yang admin-only.
+- PENTING: pembatasan-pembatasan ini bukan cuma di UI (sembunyiin link/tombol), tapi juga dikunci di level database lewat migrasi-roles.sql -- jadi walaupun ada yang coba panggil API langsung (bukan lewat UI), tetep ketolak:
+  - Trigger `orders_restrict_status_change` (BEFORE UPDATE): kalau bukan admin dan status baru bukan 'baru'/'diproses', raise exception. Kasir tetap boleh INSERT order baru dan UPDATE `proof_path` (upload bukti) -- cuma kolom status yang dibatasi nilainya.
+  - Trigger `restrict_product_updates_by_role` (BEFORE UPDATE di products): kalau bukan admin dan ada kolom SELAIN `stock` yang berubah, raise exception.
+  - Policy DELETE di `orders`, policy INSERT/DELETE di `products` (UPDATE-nya dilonggarkan lagi ke semua authenticated, dibatasi trigger di atas), dan policy UPDATE di `settings`: semua syaratnya `is_admin()`.
+- Riwayat/audit trail, otomatis kecatat lewat trigger (client tidak perlu manggil apa-apa selain update biasa):
+  - `order_status_logs` (order_id, old_status, new_status, changed_by, changed_by_email, created_at) -- diisi trigger `orders_log_initial_status` (AFTER INSERT) dan `orders_restrict_status_change` (AFTER validasi lolos). Ditampilkan di Orders.jsx bagian "Riwayat Status" per pesanan (data-nya udah ikut ke-embed dari `getAllOrders()` via `order_status_logs(*)`).
+  - `stock_logs` (product_id, product_name, changed_by, changed_by_email, delta, new_stock, created_at) -- diisi trigger `products_log_stock_change` (AFTER UPDATE, tiap kolom stock beda dari sebelumnya, dari jalur mana pun: ProductForm admin atau StockAdjustModal kasir). Halaman /admin/riwayat-stok (src/pages/admin/StockLog.jsx, admin-only) nampilin daftarnya, src/lib/stockLogsApi.js buat fetch-nya.
+  - Dua-duanya `changed_by_email` diambil dari `auth.jwt() ->> 'email'` di dalam trigger, bukan dikirim dari client -- jadi ga bisa dipalsuin.
+- Migrasi SQL: migrasi-roles.sql (root project). WAJIB dijalankan manual di Supabase SQL Editor sebelum semua di atas ini jalan. Berisi juga backfill role 'admin' buat akun admin yang udah ada duluan (dicari lewat email, di dalam file SQL-nya).
 
 ## Aturan
 - Semua teks UI Bahasa Indonesia.

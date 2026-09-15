@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useToast } from '../../components/Toast'
+import { useAuth } from '../../hooks/useAuth'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import {
   formatRupiah,
@@ -21,9 +22,14 @@ const SORT_OPTIONS = [
   { value: 'total_terendah', label: 'Total Terendah' },
 ]
 
+// Kasir cuma boleh pindahin status ke sini. 'selesai' dan 'dibatalkan' cuma admin
+// (dikunci juga di database lewat trigger, ini cuma buat UI).
+const KASIR_ALLOWED_STATUSES = ['baru', 'diproses']
+
 export default function Orders() {
   usePageTitle('Kelola Pesanan')
   const { showToast } = useToast()
+  const { isAdmin } = useAuth()
 
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -127,6 +133,17 @@ export default function Orders() {
     return order.source === 'kasir' && !order.proof_path
   }
 
+  // Kenapa tombol status s dikunci buat order ini -- null kalau tidak dikunci.
+  function statusLockReason(order, s) {
+    if (!isAdmin && !KASIR_ALLOWED_STATUSES.includes(s.value)) {
+      return 'Hanya admin yang boleh mengubah ke status ini.'
+    }
+    if (s.value === 'selesai' && needsProofBeforeComplete(order)) {
+      return 'Upload bukti transaksi dulu sebelum menandai Selesai.'
+    }
+    return null
+  }
+
   async function handleUploadProof(order, file) {
     setUploadingProofId(order.id)
     try {
@@ -162,8 +179,8 @@ export default function Orders() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div>
             <h1 className="font-heading text-xl font-bold text-ink">Kelola Pesanan</h1>
-            <Link to="/admin/dashboard" className="text-xs text-brand hover:underline">
-              ← Kembali ke Kelola Produk
+            <Link to={isAdmin ? '/admin/dashboard' : '/admin/kasir'} className="text-xs text-brand hover:underline">
+              ← Kembali ke {isAdmin ? 'Kelola Produk' : 'Kasir'}
             </Link>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -348,14 +365,15 @@ export default function Orders() {
                           <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">Ubah Status</p>
                           <div className="mt-2 flex flex-wrap gap-2">
                             {ORDER_STATUSES.map((s) => {
-                              const locked = s.value === 'selesai' && needsProofBeforeComplete(order)
+                              const lockReason = statusLockReason(order, s)
+                              const locked = Boolean(lockReason)
                               return (
                                 <button
                                   key={s.value}
                                   type="button"
                                   disabled={busyId === order.id || order.status === s.value || locked}
                                   onClick={() => setPendingStatus({ order, status: s.value })}
-                                  title={locked ? 'Upload bukti transaksi dulu sebelum menandai Selesai' : undefined}
+                                  title={lockReason ?? undefined}
                                   className={`rounded-full px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed ${
                                     order.status === s.value
                                       ? s.className
@@ -372,14 +390,42 @@ export default function Orders() {
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setDeleting(order)}
-                          className="text-sm font-medium text-red-600 hover:underline"
-                        >
-                          Hapus Pesanan
-                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleting(order)}
+                            className="text-sm font-medium text-red-600 hover:underline"
+                          >
+                            Hapus Pesanan
+                          </button>
+                        )}
                       </div>
+
+                      {order.order_status_logs?.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">
+                            Riwayat Status
+                          </p>
+                          <div className="mt-2 space-y-1">
+                            {[...order.order_status_logs]
+                              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+                              .map((log) => (
+                                <p key={log.id} className="text-xs text-ink/50">
+                                  {formatDateTime(log.created_at)} ·{' '}
+                                  {log.old_status ? (
+                                    <>
+                                      {getOrderStatusMeta(log.old_status).label} →{' '}
+                                      {getOrderStatusMeta(log.new_status).label}
+                                    </>
+                                  ) : (
+                                    <>Dibuat dengan status {getOrderStatusMeta(log.new_status).label}</>
+                                  )}{' '}
+                                  <span className="text-ink/40">oleh {log.changed_by_email ?? 'sistem'}</span>
+                                </p>
+                              ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

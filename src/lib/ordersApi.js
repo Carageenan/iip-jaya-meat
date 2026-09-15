@@ -32,11 +32,12 @@ export async function createOrder({ customer, items, total }) {
   return { id: orderId }
 }
 
-// Dipanggil dari admin (harus login) -> butuh baca semua order + itemnya.
+// Dipanggil dari admin/kasir (harus login) -> butuh baca semua order + itemnya
+// + riwayat perubahan status-nya sekalian (biar ga perlu fetch terpisah per order).
 export async function getAllOrders() {
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select('*, order_items(*), order_status_logs(*)')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data

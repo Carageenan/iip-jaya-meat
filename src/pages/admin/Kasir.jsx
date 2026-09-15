@@ -7,14 +7,16 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { useToast } from '../../components/Toast'
 import { formatRupiah, CATEGORIES, PAYMENT_TYPES } from '../../lib/format'
 import * as ordersApi from '../../lib/ordersApi'
+import * as productsApi from '../../lib/productsApi'
 
 export default function Kasir() {
   usePageTitle('Kasir')
   const { cashierEnabled, loading: settingsLoading } = useSettings()
-  const { products, loading: productsLoading } = useProducts()
+  const { products, loading: productsLoading, refetch: refetchProducts } = useProducts()
   const { showToast } = useToast()
   const { session, isAdmin, signOut } = useAuth()
   const navigate = useNavigate()
+  const [stockAdjustProduct, setStockAdjustProduct] = useState(null)
 
   async function handleSignOut() {
     await signOut()
@@ -173,21 +175,19 @@ export default function Kasir() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {isAdmin && (
-              <>
-                <Link
-                  to="/admin/dashboard"
-                  className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
-                >
-                  Kelola Produk
-                </Link>
-                <Link
-                  to="/admin/orders"
-                  className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
-                >
-                  Kelola Pesanan
-                </Link>
-              </>
+              <Link
+                to="/admin/dashboard"
+                className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+              >
+                Kelola Produk
+              </Link>
             )}
+            <Link
+              to="/admin/orders"
+              className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+            >
+              Kelola Pesanan
+            </Link>
             <button
               type="button"
               onClick={handleSignOut}
@@ -232,13 +232,15 @@ export default function Kasir() {
                 <p className="py-8 text-center text-sm text-ink/50">Tidak ada produk tersedia.</p>
               ) : (
                 filteredProducts.map((p) => (
-                  <button
+                  <div
                     key={p.id}
-                    type="button"
-                    onClick={() => addToCart(p)}
-                    className="flex w-full items-center justify-between rounded-lg border border-ink/10 bg-white px-4 py-3 text-left hover:border-brand"
+                    className="flex items-center justify-between rounded-lg border border-ink/10 bg-white px-4 py-3 hover:border-brand"
                   >
-                    <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => addToCart(p)}
+                      className="flex flex-1 items-center gap-3 text-left"
+                    >
                       {p.image_url ? (
                         <img src={p.image_url} alt={p.name} className="h-10 w-10 rounded object-cover" />
                       ) : (
@@ -248,9 +250,26 @@ export default function Kasir() {
                         <p className="text-sm font-medium text-ink">{p.name}</p>
                         <p className="text-xs text-ink/50">{formatRupiah(p.price)} /{p.unit}</p>
                       </div>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setStockAdjustProduct(p)}
+                        title="Ubah stok produk ini"
+                        className="rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/60 hover:border-brand hover:text-brand"
+                      >
+                        Stok {p.stock}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addToCart(p)}
+                        aria-label={`Tambah ${p.name} ke transaksi`}
+                        className="text-lg font-bold text-brand"
+                      >
+                        +
+                      </button>
                     </div>
-                    <span className="text-lg font-bold text-brand">+</span>
-                  </button>
+                  </div>
                 ))
               )}
             </div>
@@ -438,6 +457,101 @@ export default function Kasir() {
           </div>
         </div>
       </main>
+
+      {stockAdjustProduct && (
+        <StockAdjustModal
+          product={stockAdjustProduct}
+          onClose={() => setStockAdjustProduct(null)}
+          onSaved={refetchProducts}
+        />
+      )}
+    </div>
+  )
+}
+
+function StockAdjustModal({ product, onClose, onSaved }) {
+  const { showToast } = useToast()
+  const [delta, setDelta] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const deltaNum = Number(delta)
+  const hasValidDelta = delta !== '' && Number.isFinite(deltaNum) && deltaNum !== 0
+  const newStock = product.stock + (hasValidDelta ? deltaNum : 0)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!hasValidDelta) {
+      setError('Isi jumlah perubahan stok (boleh negatif buat mengurangi).')
+      return
+    }
+    if (newStock < 0) {
+      setError('Stok tidak boleh jadi minus.')
+      return
+    }
+    setSaving(true)
+    try {
+      await productsApi.update(product.id, { stock: newStock })
+      showToast(`Stok ${product.name} diperbarui jadi ${newStock}.`)
+      onSaved()
+      onClose()
+    } catch (err) {
+      showToast(err.message || 'Gagal memperbarui stok.', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4">
+      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+        <h2 className="font-heading text-lg font-bold text-ink">Ubah Stok</h2>
+        <p className="mt-1 text-sm text-ink/60">
+          {product.name} · Stok sekarang: <span className="font-semibold text-ink">{product.stock}</span>
+        </p>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-ink/70">
+              Jumlah Perubahan (isi negatif buat mengurangi)
+            </label>
+            <input
+              type="number"
+              value={delta}
+              onChange={(e) => {
+                setDelta(e.target.value)
+                setError('')
+              }}
+              placeholder="contoh: 50 atau -10"
+              autoFocus
+              className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+            />
+            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+            {hasValidDelta && !error && <p className="mt-1 text-xs text-ink/50">Stok jadi: {newStock}</p>}
+          </div>
+
+          <p className="text-xs text-ink/40">
+            Perubahan ini otomatis tercatat (siapa, berapa, kapan) di Riwayat Stok.
+          </p>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+            >
+              {saving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

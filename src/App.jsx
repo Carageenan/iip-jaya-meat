@@ -16,6 +16,7 @@ import Login from './pages/admin/Login'
 import Dashboard from './pages/admin/Dashboard'
 import Orders from './pages/admin/Orders'
 import Kasir from './pages/admin/Kasir'
+import StockLog from './pages/admin/StockLog'
 
 function App() {
   return (
@@ -47,7 +48,7 @@ function App() {
                 <Route
                   path="/admin/orders"
                   element={
-                    <ProtectedRoute requireAdmin>
+                    <ProtectedRoute>
                       <Orders />
                     </ProtectedRoute>
                   }
@@ -57,6 +58,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Kasir />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/riwayat-stok"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <StockLog />
                     </ProtectedRoute>
                   }
                 />
