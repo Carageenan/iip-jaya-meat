@@ -1,0 +1,28 @@
+name: Keep Supabase Alive
+
+# Supabase free tier otomatis pause project kalau tidak ada aktivitas 7 hari.
+# Workflow ini "nyolek" API-nya tiap hari (baca 1 baris produk doang, super ringan)
+# biar dianggap masih aktif. Jauh di bawah batas 7 hari, biar aman dari delay
+# jadwal GitHub Actions yang kadang meleset beberapa jam.
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # tiap hari jam 03:00 UTC (10:00 WIB)
+  workflow_dispatch: # biar bisa dites manual dari tab Actions
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          http_code=$(curl -s -o /tmp/response.txt -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/products?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "HTTP status: $http_code"
+          cat /tmp/response.txt
+          if [ "$http_code" -ge 400 ]; then
+            echo "::error::Supabase merespons error ($http_code) -- cek apakah project masih hidup / key masih valid."
+            exit 1
+          fi
