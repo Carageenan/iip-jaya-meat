@@ -83,7 +83,7 @@ export default function Orders() {
     const q = search.trim().toLowerCase()
     if (q) {
       result = result.filter(
-        (o) => o.customer_name.toLowerCase().includes(q) || o.customer_phone.toLowerCase().includes(q)
+        (o) => o.customer_name.toLowerCase().includes(q) || (o.customer_phone ?? '').toLowerCase().includes(q)
       )
     }
 
