@@ -65,6 +65,12 @@ export default function Kasir() {
     setProofPreview(URL.createObjectURL(file))
   }
 
+  function handleRemoveProof() {
+    setProofFile(null)
+    setProofPreview('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   function resetForm() {
     setCart([])
     setBuyerName('')
@@ -326,18 +332,62 @@ export default function Kasir() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-ink/70">Bukti Transaksi (opsional)</label>
-                  {proofPreview && (
-                    <img src={proofPreview} alt="Preview bukti" className="mt-2 h-24 w-24 rounded-lg object-cover" />
-                  )}
+                  <label className="block text-sm font-medium text-ink/70">Bukti Transaksi</label>
+
                   <input
                     ref={fileInputRef}
+                    id="proof-file-input"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     onChange={handleProofChange}
-                    className="mt-2 block w-full text-sm text-ink/70"
+                    className="hidden"
                   />
-                  <p className="mt-1 text-xs text-ink/40">Foto struk / bukti transfer. JPG/PNG/WEBP, maksimal 2 MB.</p>
+
+                  {proofPreview ? (
+                    <div className="mt-2 flex items-center gap-3 rounded-lg border border-ink/15 bg-white p-3">
+                      <img src={proofPreview} alt="Preview bukti" className="h-16 w-16 rounded-lg object-cover" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{proofFile?.name}</p>
+                        <p className="text-xs text-green-700">Siap diunggah</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveProof}
+                        className="shrink-0 text-xs font-medium text-red-600 hover:underline"
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="proof-file-input"
+                      className="mt-2 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-ink/20 bg-ink/5 px-4 py-6 text-center transition-colors hover:border-brand hover:bg-brand/5"
+                    >
+                      <svg
+                        width="28"
+                        height="28"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        className="text-ink/40"
+                      >
+                        <path
+                          d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <span className="text-sm font-semibold text-brand">Pilih Foto Struk / Transfer</span>
+                      <span className="text-xs text-ink/40">JPG, PNG, atau WEBP, maksimal 2 MB</span>
+                    </label>
+                  )}
+
+                  <p className="mt-2 text-xs text-ink/50">
+                    Opsional saat ini, tapi status pesanan baru bisa ditandai{' '}
+                    <span className="font-medium text-ink/70">Selesai</span> kalau sudah ada bukti transaksi
+                    (bisa juga diunggah belakangan lewat Kelola Pesanan).
+                  </p>
                 </div>
 
                 <button

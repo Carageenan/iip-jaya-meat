@@ -87,7 +87,23 @@ export async function getProofUrl(path) {
   return data.signedUrl
 }
 
+// Tempel bukti transaksi ke order kasir yang udah ada (belum ada foto pas dibuat).
+export async function attachProof(orderId, file) {
+  const path = await uploadProof(file)
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ proof_path: path })
+    .eq('id', orderId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 // Admin sudah login, jadi boleh .select() balik hasil insert (beda dari checkout publik).
+// Status otomatis "selesai" HANYA kalau ada bukti transaksi. Tanpa bukti, order masuk
+// sebagai "baru" -- kasir/admin wajib upload bukti dulu (lewat halaman ini atau Kelola
+// Pesanan) baru bisa ditandai Selesai. Lihat juga Orders.jsx yang mengunci tombol Selesai.
 export async function createCashierOrder({ customer, items, total, paymentType, amountPaid, proofPath }) {
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -95,7 +111,7 @@ export async function createCashierOrder({ customer, items, total, paymentType, 
       customer_name: customer.name,
       customer_phone: customer.phone || null,
       source: 'kasir',
-      status: 'selesai',
+      status: proofPath ? 'selesai' : 'baru',
       total,
       payment_type: paymentType,
       amount_paid: paymentType === 'dp' ? amountPaid : total,

@@ -39,6 +39,7 @@ export default function Orders() {
   const [removing, setRemoving] = useState(false)
   const [proofUrls, setProofUrls] = useState({}) // { [orderId]: signedUrl }
   const [loadingProofId, setLoadingProofId] = useState(null)
+  const [uploadingProofId, setUploadingProofId] = useState(null)
 
   async function refetch() {
     setLoading(true)
@@ -118,6 +119,24 @@ export default function Orders() {
     } finally {
       setBusyId(null)
       setPendingStatus(null)
+    }
+  }
+
+  // Transaksi kasir wajib punya bukti transaksi sebelum boleh ditandai Selesai.
+  function needsProofBeforeComplete(order) {
+    return order.source === 'kasir' && !order.proof_path
+  }
+
+  async function handleUploadProof(order, file) {
+    setUploadingProofId(order.id)
+    try {
+      const updated = await ordersApi.attachProof(order.id, file)
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, proof_path: updated.proof_path } : o)))
+      showToast('Bukti transaksi berhasil diunggah.')
+    } catch (err) {
+      showToast(err.message || 'Gagal mengunggah bukti transaksi.', 'error')
+    } finally {
+      setUploadingProofId(null)
     }
   }
 
@@ -279,7 +298,7 @@ export default function Orders() {
                               <> · Sisa {formatRupiah(order.total - (order.amount_paid ?? 0))}</>
                             )}
                           </p>
-                          {order.proof_path && (
+                          {order.proof_path ? (
                             <div className="mt-2">
                               {proofUrls[order.id] ? (
                                 <a href={proofUrls[order.id]} target="_blank" rel="noreferrer">
@@ -300,6 +319,26 @@ export default function Orders() {
                                 </button>
                               )}
                             </div>
+                          ) : (
+                            <div className="mt-3 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 p-3">
+                              <p className="text-xs text-amber-800">
+                                Belum ada bukti transaksi. Status tidak bisa ditandai Selesai sampai bukti diunggah.
+                              </p>
+                              <label className="mt-2 inline-block cursor-pointer rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand shadow-sm hover:bg-brand/5">
+                                {uploadingProofId === order.id ? 'Mengunggah...' : 'Unggah Bukti Transaksi'}
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  disabled={uploadingProofId === order.id}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) handleUploadProof(order, file)
+                                    e.target.value = ''
+                                  }}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
                           )}
                         </div>
                       )}
@@ -308,19 +347,28 @@ export default function Orders() {
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">Ubah Status</p>
                           <div className="mt-2 flex flex-wrap gap-2">
-                            {ORDER_STATUSES.map((s) => (
-                              <button
-                                key={s.value}
-                                type="button"
-                                disabled={busyId === order.id || order.status === s.value}
-                                onClick={() => setPendingStatus({ order, status: s.value })}
-                                className={`rounded-full px-3 py-1.5 text-xs font-medium disabled:cursor-default ${
-                                  order.status === s.value ? s.className : 'bg-ink/5 text-ink/60 hover:bg-ink/10'
-                                }`}
-                              >
-                                {s.label}
-                              </button>
-                            ))}
+                            {ORDER_STATUSES.map((s) => {
+                              const locked = s.value === 'selesai' && needsProofBeforeComplete(order)
+                              return (
+                                <button
+                                  key={s.value}
+                                  type="button"
+                                  disabled={busyId === order.id || order.status === s.value || locked}
+                                  onClick={() => setPendingStatus({ order, status: s.value })}
+                                  title={locked ? 'Upload bukti transaksi dulu sebelum menandai Selesai' : undefined}
+                                  className={`rounded-full px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed ${
+                                    order.status === s.value
+                                      ? s.className
+                                      : locked
+                                        ? 'bg-ink/5 text-ink/30'
+                                        : 'bg-ink/5 text-ink/60 hover:bg-ink/10'
+                                  }`}
+                                >
+                                  {s.label}
+                                  {locked && ' 🔒'}
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
 
