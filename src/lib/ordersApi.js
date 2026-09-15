@@ -1,22 +1,24 @@
 import { supabase } from './supabaseClient'
 
 // Dipanggil dari halaman Checkout (publik, belum login) -> insert order + order_items.
+// PENTING: tidak pakai .select() setelah insert. Anon sengaja tidak dikasih izin SELECT
+// ke orders/order_items (privasi, biar customer tidak bisa baca pesanan orang lain), jadi
+// minta representasi balik (.select()) akan gagal RLS. id di-generate di client sendiri.
 export async function createOrder({ customer, items, total }) {
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert({
-      customer_name: customer.name,
-      customer_phone: customer.phone,
-      customer_address: customer.address || null,
-      notes: customer.notes || null,
-      total,
-    })
-    .select()
-    .single()
+  const orderId = crypto.randomUUID()
+
+  const { error: orderError } = await supabase.from('orders').insert({
+    id: orderId,
+    customer_name: customer.name,
+    customer_phone: customer.phone,
+    customer_address: customer.address || null,
+    notes: customer.notes || null,
+    total,
+  })
   if (orderError) throw orderError
 
   const orderItems = items.map((item) => ({
-    order_id: order.id,
+    order_id: orderId,
     product_id: item.id,
     product_name: item.name,
     price: item.price,
@@ -27,7 +29,7 @@ export async function createOrder({ customer, items, total }) {
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
   if (itemsError) throw itemsError
 
-  return order
+  return { id: orderId }
 }
 
 // Dipanggil dari admin (harus login) -> butuh baca semua order + itemnya.

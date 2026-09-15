@@ -35,7 +35,7 @@ export default function Checkout() {
     setSubmitError('')
     try {
       const created = await ordersApi.createOrder({ customer: form, items, total: totalPrice })
-      setOrder({ ...created, items })
+      setOrder({ id: created.id, total: totalPrice, items })
       clear()
     } catch (err) {
       setSubmitError(err.message || 'Gagal membuat pesanan. Coba lagi.')
