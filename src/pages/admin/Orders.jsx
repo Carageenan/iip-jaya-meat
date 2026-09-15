@@ -135,12 +135,13 @@ export default function Orders() {
     }
   }
 
-  // Transaksi kasir wajib SEMUA baris pembayarannya punya bukti transaksi
-  // sebelum boleh ditandai Selesai -- bukan cukup salah satu cicilan aja.
+  // SEMUA pesanan -- dari web maupun kasir -- wajib SEMUA baris pembayarannya
+  // punya bukti transaksi sebelum boleh ditandai Selesai (bukan cukup salah
+  // satu cicilan aja). `source` cuma buat tau asalnya, bukan buat bedain
+  // aturan bukti bayar -- aneh kalau dibedain.
   // Cek langsung ke order_payments (bukan orders.proof_path, yang cuma cache
   // "bukti terbaru yang ada" -- gak merepresentasikan "semua sudah lengkap").
   function needsProofBeforeComplete(order) {
-    if (order.source !== 'kasir') return false
     const payments = order.order_payments || []
     if (payments.length === 0) return true
     return payments.some((p) => !p.proof_path)
@@ -369,16 +370,18 @@ export default function Orders() {
                         </div>
                       )}
 
-                      {order.source === 'kasir' && (
+                      {(() => {
+                        const sisa = order.total - (order.amount_paid ?? 0)
+                        return (
                         <div className="mt-4 rounded-lg bg-teal-50 p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Pembayaran</p>
                             <p className="text-sm text-ink/70">
-                              {PAYMENT_TYPES.find((p) => p.value === order.payment_type)?.label ?? '-'} ·{' '}
-                              {formatRupiah(order.amount_paid)} dibayar
-                              {order.payment_type === 'dp' && (
-                                <> · Sisa {formatRupiah(order.total - (order.amount_paid ?? 0))}</>
+                              {order.payment_type && (
+                                <>{PAYMENT_TYPES.find((p) => p.value === order.payment_type)?.label ?? '-'} ·{' '}</>
                               )}
+                              {formatRupiah(order.amount_paid)} dibayar
+                              {sisa > 0 && <> · Sisa {formatRupiah(sisa)}</>}
                             </p>
                           </div>
 
@@ -458,7 +461,7 @@ export default function Orders() {
                               ))}
                           </div>
 
-                          {order.total - (order.amount_paid ?? 0) > 0 &&
+                          {sisa > 0 &&
                             (addingPaymentFor === order.id ? (
                               <div className="mt-3 rounded-lg border border-teal-200 bg-white p-3">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">
@@ -467,7 +470,7 @@ export default function Orders() {
                                 <input
                                   type="number"
                                   min="1"
-                                  placeholder={`Maks. ${order.total - (order.amount_paid ?? 0)}`}
+                                  placeholder={`Maks. ${sisa}`}
                                   value={paymentDrafts[order.id]?.amount ?? ''}
                                   onChange={(e) => updatePaymentDraft(order.id, { amount: e.target.value })}
                                   className="mt-2 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm"
@@ -518,7 +521,8 @@ export default function Orders() {
                               </button>
                             ))}
                         </div>
-                      )}
+                        )
+                      })()}
 
                       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
                         <div>
