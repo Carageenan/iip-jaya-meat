@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useProducts } from '../../hooks/useProducts'
 import { useSettings } from '../../hooks/useSettings'
@@ -25,6 +25,7 @@ export default function Kasir() {
   const [proofPreview, setProofPreview] = useState('')
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const fileInputRef = useRef(null)
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -73,6 +74,7 @@ export default function Kasir() {
     setProofFile(null)
     setProofPreview('')
     setErrors({})
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   function validate() {
@@ -329,6 +331,7 @@ export default function Kasir() {
                     <img src={proofPreview} alt="Preview bukti" className="mt-2 h-24 w-24 rounded-lg object-cover" />
                   )}
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     onChange={handleProofChange}
