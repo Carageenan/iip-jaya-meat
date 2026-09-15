@@ -61,6 +61,16 @@
   - Dua-duanya `changed_by_email` diambil dari `auth.jwt() ->> 'email'` di dalam trigger, bukan dikirim dari client -- jadi ga bisa dipalsuin.
 - Migrasi SQL: migrasi-roles.sql (root project). WAJIB dijalankan manual di Supabase SQL Editor sebelum semua di atas ini jalan. Berisi juga backfill role 'admin' buat akun admin yang udah ada duluan (dicari lewat email, di dalam file SQL-nya).
 
+## Fitur Approval Stok (acknowledgment, bukan blocking)
+- Kolom baru di `stock_logs`: `approved` (default false), `approved_by`, `approved_by_email`, `approved_at`.
+- Trigger `log_stock_change()` diupdate: perubahan stok yang dilakukan admin otomatis `approved=true` (self-evident, admin gak perlu approve diri sendiri), perubahan dari kasir masuk `approved=false`.
+- INI BUKAN gerbang blocking -- kasir tetap bisa langsung nambah/kurang stok kapan pun, produk langsung berubah. Approval cuma catatan "sudah diketahui pemilik", murni buat transparansi.
+- Admin approve (tandai diketahui) di /admin/riwayat-stok (kolom Status: badge "Menunggu"/"Diketahui" + tombol "Tandai Diketahui", admin-only) lewat stockLogsApi.approveStockLog(). Field approved_by/approved_by_email/approved_at diisi otomatis oleh trigger `stamp_stock_log_approval()` dari sesi yang approve, bukan dari client.
+- RLS: policy UPDATE di `stock_logs` syaratnya `is_admin()` -- kasir gak bisa approve lewat API langsung.
+- Halaman Riwayat Stok sekarang bisa diakses kasir juga (read-only + upload bukti bukan relevan di sini, cuma liat + filter status), route-nya dilonggarkan dari `requireAdmin` jadi ProtectedRoute biasa; tombol approve tetap dikunci `isAdmin &&` di dalam komponen.
+- Bubble ringkasan (SummaryBubbles, dipakai Dashboard + Kasir) nambah kartu ke-5 "Stok Perlu Diketahui", isinya stockLogsApi.getPendingStockApprovals() (yang approved=false), link ke /admin/riwayat-stok.
+- Migrasi SQL: migrasi-approval-stok.sql (root project).
+
 ## Aturan
 - Semua teks UI Bahasa Indonesia.
 - Format harga pakai new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }). Helper di src/lib/format.js.

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatRupiah } from '../../lib/format'
 import * as ordersApi from '../../lib/ordersApi'
+import * as stockLogsApi from '../../lib/stockLogsApi'
 
 const SUMMARY_TONES = {
   default: {
@@ -89,11 +90,21 @@ function WalletIcon() {
   )
 }
 
+function CheckBadgeIcon() {
+  return (
+    <svg {...ICON_PROPS}>
+      <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  )
+}
+
 // Dipakai di Kelola Produk (admin) dan Kasir (admin + kasir) -- keduanya boleh
 // liat kondisi umum toko. Recap (uang masuk dll) sengaja TIDAK di sini, itu
 // tetap khusus admin di halaman terpisah.
 export default function SummaryBubbles({ products }) {
   const [orderSummary, setOrderSummary] = useState([])
+  const [pendingStock, setPendingStock] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -102,6 +113,11 @@ export default function SummaryBubbles({ products }) {
       .then(setOrderSummary)
       .catch(() => setOrderSummary([]))
       .finally(() => setLoading(false))
+
+    stockLogsApi
+      .getPendingStockApprovals()
+      .then(setPendingStock)
+      .catch(() => setPendingStock([]))
   }, [])
 
   const newOrdersCount = useMemo(() => orderSummary.filter((o) => o.status === 'baru').length, [orderSummary])
@@ -127,7 +143,7 @@ export default function SummaryBubbles({ products }) {
   }, [products])
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <Link to="/admin/orders" className="block transition-transform hover:-translate-y-0.5">
         <SummaryCard
           icon={<InboxIcon />}
@@ -176,6 +192,33 @@ export default function SummaryBubbles({ products }) {
           value={loading ? '...' : formatRupiah(unpaidTotal)}
           tone={unpaidTotal > 0 ? 'danger' : 'default'}
         />
+      </Link>
+      <Link to="/admin/riwayat-stok" className="block transition-transform hover:-translate-y-0.5">
+        <SummaryCard
+          icon={<CheckBadgeIcon />}
+          label="Stok Perlu Diketahui"
+          value={loading ? '...' : pendingStock.length}
+          tone={pendingStock.length > 0 ? 'warning' : 'default'}
+        >
+          {pendingStock.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-amber-200/60 pt-3">
+              {pendingStock.slice(0, 3).map((l) => (
+                <span
+                  key={l.id}
+                  className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-amber-800"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  {l.product_name} ({l.delta > 0 ? `+${l.delta}` : l.delta})
+                </span>
+              ))}
+              {pendingStock.length > 3 && (
+                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                  +{pendingStock.length - 3} lagi
+                </span>
+              )}
+            </div>
+          )}
+        </SummaryCard>
       </Link>
     </div>
   )

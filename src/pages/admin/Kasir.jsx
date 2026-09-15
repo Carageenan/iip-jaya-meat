@@ -189,6 +189,12 @@ export default function Kasir() {
             >
               Kelola Pesanan
             </Link>
+            <Link
+              to="/admin/riwayat-stok"
+              className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+            >
+              Riwayat Stok
+            </Link>
             <button
               type="button"
               onClick={handleSignOut}

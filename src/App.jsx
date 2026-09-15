@@ -65,7 +65,7 @@ function App() {
                 <Route
                   path="/admin/riwayat-stok"
                   element={
-                    <ProtectedRoute requireAdmin>
+                    <ProtectedRoute>
                       <StockLog />
                     </ProtectedRoute>
                   }
