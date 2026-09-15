@@ -11,14 +11,44 @@ import { useToast } from '../../components/Toast'
 import ProductForm from '../../components/admin/ProductForm'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 
+function SettingToggle({ label, enabled, onToggle, disabled }) {
+  return (
+    <label className="flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2 text-sm">
+      <span className="text-ink/70">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        disabled={disabled}
+        onClick={onToggle}
+        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+          enabled ? 'bg-brand' : 'bg-ink/20'
+        }`}
+      >
+        <span
+          className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+            enabled ? 'translate-x-4' : 'translate-x-0'
+          }`}
+        />
+      </button>
+    </label>
+  )
+}
+
 export default function Dashboard() {
   usePageTitle('Kelola Produk')
   const { session, signOut } = useAuth()
   const { products, loading, error, refetch } = useProducts()
-  const { onlineOrderingEnabled, loading: settingsLoading, refetch: refetchSettings } = useSettings()
+  const {
+    onlineOrderingEnabled,
+    cashierEnabled,
+    loading: settingsLoading,
+    refetch: refetchSettings,
+  } = useSettings()
   const { showToast } = useToast()
   const navigate = useNavigate()
   const [togglingOrder, setTogglingOrder] = useState(false)
+  const [togglingCashier, setTogglingCashier] = useState(false)
 
   async function handleToggleOnlineOrdering() {
     setTogglingOrder(true)
@@ -30,6 +60,19 @@ export default function Dashboard() {
       showToast(err.message || 'Gagal mengubah pengaturan.', 'error')
     } finally {
       setTogglingOrder(false)
+    }
+  }
+
+  async function handleToggleCashier() {
+    setTogglingCashier(true)
+    try {
+      await settingsApi.updateSettings({ cashier_enabled: !cashierEnabled })
+      await refetchSettings()
+      showToast(`Mode kasir ${!cashierEnabled ? 'dinyalakan' : 'dimatikan'}.`)
+    } catch (err) {
+      showToast(err.message || 'Gagal mengubah pengaturan.', 'error')
+    } finally {
+      setTogglingCashier(false)
     }
   }
 
@@ -94,31 +137,32 @@ export default function Dashboard() {
             <p className="text-xs text-ink/50">{session?.user?.email}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2 text-sm">
-              <span className="text-ink/70">Mode Pesan Online</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={onlineOrderingEnabled}
-                disabled={settingsLoading || togglingOrder}
-                onClick={handleToggleOnlineOrdering}
-                className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
-                  onlineOrderingEnabled ? 'bg-brand' : 'bg-ink/20'
-                }`}
-              >
-                <span
-                  className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                    onlineOrderingEnabled ? 'translate-x-4' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </label>
+            <SettingToggle
+              label="Mode Pesan Online"
+              enabled={onlineOrderingEnabled}
+              disabled={settingsLoading || togglingOrder}
+              onToggle={handleToggleOnlineOrdering}
+            />
+            <SettingToggle
+              label="Mode Kasir"
+              enabled={cashierEnabled}
+              disabled={settingsLoading || togglingCashier}
+              onToggle={handleToggleCashier}
+            />
             <Link
               to="/admin/orders"
               className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
             >
               Kelola Pesanan
             </Link>
+            {cashierEnabled && (
+              <Link
+                to="/admin/kasir"
+                className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+              >
+                Kasir
+              </Link>
+            )}
             <a
               href="/"
               target="_blank"

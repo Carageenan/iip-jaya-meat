@@ -1,0 +1,354 @@
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useProducts } from '../../hooks/useProducts'
+import { useSettings } from '../../hooks/useSettings'
+import { usePageTitle } from '../../hooks/usePageTitle'
+import { useToast } from '../../components/Toast'
+import { formatRupiah, CATEGORIES, PAYMENT_TYPES } from '../../lib/format'
+import * as ordersApi from '../../lib/ordersApi'
+
+export default function Kasir() {
+  usePageTitle('Kasir')
+  const { cashierEnabled, loading: settingsLoading } = useSettings()
+  const { products, loading: productsLoading } = useProducts()
+  const { showToast } = useToast()
+
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('semua')
+  const [cart, setCart] = useState([]) // { id, name, price, unit, quantity }
+
+  const [buyerName, setBuyerName] = useState('')
+  const [buyerPhone, setBuyerPhone] = useState('')
+  const [paymentType, setPaymentType] = useState('cash')
+  const [amountPaid, setAmountPaid] = useState('')
+  const [proofFile, setProofFile] = useState(null)
+  const [proofPreview, setProofPreview] = useState('')
+  const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchCategory = category === 'semua' || p.category === category
+      const matchSearch = p.name.toLowerCase().includes(search.trim().toLowerCase())
+      return matchCategory && matchSearch && p.is_available
+    })
+  }, [products, category, search])
+
+  const total = useMemo(() => cart.reduce((sum, i) => sum + i.price * i.quantity, 0), [cart])
+
+  function addToCart(product) {
+    setCart((prev) => {
+      const existing = prev.find((i) => i.id === product.id)
+      if (existing) {
+        return prev.map((i) => (i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i))
+      }
+      return [...prev, { id: product.id, name: product.name, price: product.price, unit: product.unit, quantity: 1 }]
+    })
+  }
+
+  function updateQuantity(productId, quantity) {
+    setCart((prev) => {
+      if (quantity <= 0) return prev.filter((i) => i.id !== productId)
+      return prev.map((i) => (i.id === productId ? { ...i, quantity } : i))
+    })
+  }
+
+  function removeFromCart(productId) {
+    setCart((prev) => prev.filter((i) => i.id !== productId))
+  }
+
+  function handleProofChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setProofFile(file)
+    setProofPreview(URL.createObjectURL(file))
+  }
+
+  function resetForm() {
+    setCart([])
+    setBuyerName('')
+    setBuyerPhone('')
+    setPaymentType('cash')
+    setAmountPaid('')
+    setProofFile(null)
+    setProofPreview('')
+    setErrors({})
+  }
+
+  function validate() {
+    const errs = {}
+    if (cart.length === 0) errs.cart = 'Belum ada produk ditambahkan.'
+    if (!buyerName.trim()) errs.buyerName = 'Nama pembeli wajib diisi.'
+    if (paymentType === 'dp') {
+      const amt = Number(amountPaid)
+      if (!amountPaid || amt <= 0) errs.amountPaid = 'Jumlah DP wajib diisi.'
+      else if (amt >= total) errs.amountPaid = 'Jumlah DP harus kurang dari total (kalau lunas, pilih Cash).'
+    }
+    setErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!validate()) return
+    setSubmitting(true)
+    try {
+      let proofPath = null
+      if (proofFile) {
+        proofPath = await ordersApi.uploadProof(proofFile)
+      }
+
+      await ordersApi.createCashierOrder({
+        customer: { name: buyerName.trim(), phone: buyerPhone.trim() },
+        items: cart,
+        total,
+        paymentType,
+        amountPaid: paymentType === 'dp' ? Number(amountPaid) : total,
+        proofPath,
+      })
+
+      showToast('Transaksi berhasil dicatat.')
+      resetForm()
+    } catch (err) {
+      showToast(err.message || 'Gagal mencatat transaksi.', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!settingsLoading && !cashierEnabled) {
+    return (
+      <div className="min-h-screen bg-cream">
+        <header className="border-b border-ink/10 bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
+            <h1 className="font-heading text-xl font-bold text-ink">Kasir</h1>
+            <Link to="/admin/dashboard" className="text-xs text-brand hover:underline">
+              ← Kembali ke Kelola Produk
+            </Link>
+          </div>
+        </header>
+        <main className="mx-auto max-w-xl px-4 py-16 text-center sm:px-6">
+          <p className="text-ink/60">
+            Fitur Kasir sedang dimatikan. Nyalakan dulu lewat toggle "Mode Kasir" di halaman Kelola Produk.
+          </p>
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-cream">
+      <header className="border-b border-ink/10 bg-white">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+          <div>
+            <h1 className="font-heading text-xl font-bold text-ink">Kasir</h1>
+            <Link to="/admin/dashboard" className="text-xs text-brand hover:underline">
+              ← Kembali ke Kelola Produk
+            </Link>
+          </div>
+          <Link
+            to="/admin/orders"
+            className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:bg-ink/5"
+          >
+            Kelola Pesanan
+          </Link>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <div className="grid gap-6 lg:grid-cols-5">
+          {/* Kolom produk */}
+          <div className="lg:col-span-3">
+            <div className="flex flex-wrap gap-3">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari produk..."
+                className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"
+              />
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"
+              >
+                <option value="semua">Semua Kategori</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {productsLoading ? (
+                [...Array(4)].map((_, i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-ink/5" />)
+              ) : filteredProducts.length === 0 ? (
+                <p className="py-8 text-center text-sm text-ink/50">Tidak ada produk tersedia.</p>
+              ) : (
+                filteredProducts.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => addToCart(p)}
+                    className="flex w-full items-center justify-between rounded-lg border border-ink/10 bg-white px-4 py-3 text-left hover:border-brand"
+                  >
+                    <div className="flex items-center gap-3">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.name} className="h-10 w-10 rounded object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded bg-ink/10" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-ink">{p.name}</p>
+                        <p className="text-xs text-ink/50">{formatRupiah(p.price)} /{p.unit}</p>
+                      </div>
+                    </div>
+                    <span className="text-lg font-bold text-brand">+</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Kolom keranjang & form */}
+          <div className="lg:col-span-2">
+            <div className="rounded-xl border border-ink/10 bg-white p-4">
+              <h2 className="font-heading text-lg font-bold text-ink">Transaksi</h2>
+
+              {cart.length === 0 ? (
+                <p className="mt-4 text-sm text-ink/50">Klik produk di kiri untuk menambahkan.</p>
+              ) : (
+                <div className="mt-4 space-y-2">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="min-w-0 flex-1 truncate text-ink/80">{item.name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/15 text-xs hover:bg-ink/5"
+                        >
+                          −
+                        </button>
+                        <span className="w-5 text-center">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/15 text-xs hover:bg-ink/5"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="w-20 shrink-0 text-right font-medium text-ink">
+                        {formatRupiah(item.price * item.quantity)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(item.id)}
+                        className="shrink-0 text-ink/30 hover:text-red-600"
+                        aria-label={`Hapus ${item.name}`}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex justify-between border-t border-ink/10 pt-2 text-sm font-semibold text-ink">
+                    <span>Total</span>
+                    <span className="text-brand">{formatRupiah(total)}</span>
+                  </div>
+                </div>
+              )}
+              {errors.cart && <p className="mt-2 text-xs text-red-600">{errors.cart}</p>}
+
+              <form onSubmit={handleSubmit} className="mt-6 space-y-4 border-t border-ink/10 pt-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink/70">Nama Pembeli</label>
+                  <input
+                    type="text"
+                    value={buyerName}
+                    onChange={(e) => setBuyerName(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+                  />
+                  {errors.buyerName && <p className="mt-1 text-xs text-red-600">{errors.buyerName}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-ink/70">Nomor WhatsApp (opsional)</label>
+                  <input
+                    type="tel"
+                    value={buyerPhone}
+                    onChange={(e) => setBuyerPhone(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-ink/70">Pembayaran</label>
+                  <div className="mt-1 flex gap-2">
+                    {PAYMENT_TYPES.map((p) => (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => setPaymentType(p.value)}
+                        className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
+                          paymentType === p.value
+                            ? 'border-brand bg-brand/10 text-brand'
+                            : 'border-ink/15 text-ink/60 hover:bg-ink/5'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {paymentType === 'dp' && (
+                  <div>
+                    <label className="block text-sm font-medium text-ink/70">Jumlah Dibayar (Rp)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={amountPaid}
+                      onChange={(e) => setAmountPaid(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+                    />
+                    {errors.amountPaid && <p className="mt-1 text-xs text-red-600">{errors.amountPaid}</p>}
+                    {!errors.amountPaid && amountPaid && total > 0 && (
+                      <p className="mt-1 text-xs text-ink/50">
+                        Sisa: {formatRupiah(Math.max(total - Number(amountPaid), 0))}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-ink/70">Bukti Transaksi (opsional)</label>
+                  {proofPreview && (
+                    <img src={proofPreview} alt="Preview bukti" className="mt-2 h-24 w-24 rounded-lg object-cover" />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleProofChange}
+                    className="mt-2 block w-full text-sm text-ink/70"
+                  />
+                  <p className="mt-1 text-xs text-ink/40">Foto struk / bukti transfer. JPG/PNG/WEBP, maksimal 2 MB.</p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full rounded-full bg-brand px-6 py-3 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+                >
+                  {submitting ? 'Menyimpan...' : 'Catat Transaksi'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}

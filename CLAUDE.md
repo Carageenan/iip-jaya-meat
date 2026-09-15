@@ -10,7 +10,7 @@
 ## Struktur
 - src/components: komponen reusable (Navbar, Footer, ProductCard, dll)
 - src/pages: halaman publik (Home, Tentang, Produk, Kontak, Cart, Checkout)
-- src/pages/admin: halaman admin (Login, Dashboard, Orders)
+- src/pages/admin: halaman admin (Login, Dashboard, Orders, Kasir)
 - src/lib: supabaseClient.js, productsApi.js, ordersApi.js, settingsApi.js, helper (format rupiah, dll)
 - src/hooks: custom hooks (useAuth, useProducts, useSettings, useCart)
 - konten/: aset mentah (foto, teks) dari pemilik. Foto yang dipakai dicopy ke public/
@@ -27,6 +27,18 @@
 - TIDAK ADA pembayaran online. Pesanan cuma tercatat, admin konfirmasi & koordinasi bayar manual (transfer/COD) sama seperti alur WA biasa.
 - RLS orders/order_items: publik (anon) boleh INSERT saja (bikin pesanan), tidak bisa SELECT/UPDATE/DELETE punya orang lain. Admin (authenticated) full akses lewat /admin/orders (src/pages/admin/Orders.jsx) — lihat detail item, ubah status (baru/diproses/selesai/dibatalkan) lewat ordersApi.updateOrderStatus().
 - Migrasi SQL fitur ini ada di migrasi-online-order.sql (root project, sebelah folder iip-jaya-meat), harus dijalankan manual di Supabase SQL Editor.
+
+## Fitur Kasir (toggle, transaksi offline)
+- Untuk transaksi yang terjadi langsung di toko (bukan lewat web), dicatat manual oleh admin/kasir yang login.
+- Toggle terpisah dari Mode Pesan Online: kolom `settings.cashier_enabled`, default mati. Toggle "Mode Kasir" di /admin/dashboard.
+- Kalau mati: link "Kasir" hilang dari nav admin, dan /admin/kasir kalau diakses langsung nampilin pesan "fitur dimatikan" (bukan blokir akses — cuma UX, bukan batas keamanan, karena tetap di belakang ProtectedRoute/login admin).
+- Halaman src/pages/admin/Kasir.jsx: pilih produk dari list (klik buat nambah ke keranjang lokal komponen, bukan cart customer), isi nama pembeli, pilih Cash (lunas) atau DP (sebagian, input jumlah dibayar), upload foto bukti transaksi (opsional), submit lewat ordersApi.createCashierOrder().
+- Beda dari checkout publik: kasir sudah login (authenticated), jadi boleh pakai `.select()` abis insert, ga kena masalah RLS kayak alur checkout publik.
+- Order dari kasir otomatis: `source = 'kasir'`, `status = 'selesai'` (transaksinya udah kelar di tempat, ga ada proses pengiriman).
+- Kolom baru di `orders`: `source` ('web' | 'kasir', default 'web' biar data lama tetap konsisten), `payment_type` ('cash' | 'dp'), `amount_paid`, `proof_path`.
+- Bukti transaksi disimpan di bucket Storage `order-proofs`, PRIVATE (beda dari `product-images` yang public) karena bisa berisi info sensitif (screenshot transfer dll). Cuma bisa dibaca lewat signed URL (ordersApi.getProofUrl(), berlaku 10 menit), cuma authenticated yang bisa generate.
+- Kelola Pesanan (/admin/orders) sekarang bisa filter by sumber (Web/Kasir), badge sumber ditampilin di tiap baris, dan expand detail order dari kasir nampilin info pembayaran + tombol lihat bukti.
+- Migrasi SQL: migrasi-kasir.sql (root project), harus dijalankan manual di Supabase SQL Editor.
 
 ## Aturan
 - Semua teks UI Bahasa Indonesia.

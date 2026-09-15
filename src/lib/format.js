@@ -42,6 +42,20 @@ export function getOrderStatusMeta(status) {
   return ORDER_STATUSES.find((s) => s.value === status) ?? ORDER_STATUSES[0]
 }
 
+export const PAYMENT_TYPES = [
+  { value: 'cash', label: 'Cash (Lunas)' },
+  { value: 'dp', label: 'DP (Sebagian)' },
+]
+
+export const ORDER_SOURCES = [
+  { value: 'web', label: 'Web', className: 'bg-purple-100 text-purple-700' },
+  { value: 'kasir', label: 'Kasir', className: 'bg-teal-100 text-teal-700' },
+]
+
+export function getOrderSourceMeta(source) {
+  return ORDER_SOURCES.find((s) => s.value === source) ?? ORDER_SOURCES[0]
+}
+
 export function formatDateTime(isoString) {
   if (!isoString) return '-'
   return new Intl.DateTimeFormat('id-ID', {

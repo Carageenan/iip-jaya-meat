@@ -15,6 +15,7 @@ import NotFound from './pages/NotFound'
 import Login from './pages/admin/Login'
 import Dashboard from './pages/admin/Dashboard'
 import Orders from './pages/admin/Orders'
+import Kasir from './pages/admin/Kasir'
 
 function App() {
   return (
@@ -48,6 +49,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Orders />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/kasir"
+                  element={
+                    <ProtectedRoute>
+                      <Kasir />
                     </ProtectedRoute>
                   }
                 />

@@ -3,7 +3,15 @@ import { Link } from 'react-router-dom'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useToast } from '../../components/Toast'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
-import { formatRupiah, formatDateTime, ORDER_STATUSES, getOrderStatusMeta } from '../../lib/format'
+import {
+  formatRupiah,
+  formatDateTime,
+  ORDER_STATUSES,
+  getOrderStatusMeta,
+  ORDER_SOURCES,
+  getOrderSourceMeta,
+  PAYMENT_TYPES,
+} from '../../lib/format'
 import * as ordersApi from '../../lib/ordersApi'
 
 const SORT_OPTIONS = [
@@ -22,12 +30,15 @@ export default function Orders() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('semua')
+  const [sourceFilter, setSourceFilter] = useState('semua')
   const [sortBy, setSortBy] = useState('terbaru')
   const [expandedId, setExpandedId] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [pendingStatus, setPendingStatus] = useState(null) // { order, status }
   const [deleting, setDeleting] = useState(null) // order
   const [removing, setRemoving] = useState(false)
+  const [proofUrls, setProofUrls] = useState({}) // { [orderId]: signedUrl }
+  const [loadingProofId, setLoadingProofId] = useState(null)
 
   async function refetch() {
     setLoading(true)
@@ -53,6 +64,10 @@ export default function Orders() {
       result = result.filter((o) => o.status === statusFilter)
     }
 
+    if (sourceFilter !== 'semua') {
+      result = result.filter((o) => o.source === sourceFilter)
+    }
+
     const q = search.trim().toLowerCase()
     if (q) {
       result = result.filter(
@@ -75,7 +90,20 @@ export default function Orders() {
     })
 
     return result
-  }, [orders, statusFilter, search, sortBy])
+  }, [orders, statusFilter, sourceFilter, search, sortBy])
+
+  async function handleViewProof(order) {
+    if (proofUrls[order.id]) return // sudah dimuat
+    setLoadingProofId(order.id)
+    try {
+      const url = await ordersApi.getProofUrl(order.proof_path)
+      setProofUrls((prev) => ({ ...prev, [order.id]: url }))
+    } catch (err) {
+      showToast(err.message || 'Gagal memuat bukti transaksi.', 'error')
+    } finally {
+      setLoadingProofId(null)
+    }
+  }
 
   async function confirmStatusChange() {
     if (!pendingStatus) return
@@ -140,6 +168,18 @@ export default function Orders() {
               ))}
             </select>
             <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"
+            >
+              <option value="semua">Semua Sumber</option>
+              {ORDER_SOURCES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"
@@ -173,6 +213,7 @@ export default function Orders() {
           <div className="space-y-3">
             {filtered.map((order) => {
               const status = getOrderStatusMeta(order.status)
+              const source = getOrderSourceMeta(order.source)
               const isExpanded = expandedId === order.id
               return (
                 <div key={order.id} className="rounded-xl border border-ink/10 bg-white">
@@ -182,7 +223,12 @@ export default function Orders() {
                     className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left"
                   >
                     <div>
-                      <p className="font-medium text-ink">{order.customer_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-ink">{order.customer_name}</p>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${source.className}`}>
+                          {source.label}
+                        </span>
+                      </div>
                       <p className="text-xs text-ink/50">
                         {order.customer_phone} · {formatDateTime(order.created_at)}
                       </p>
@@ -220,6 +266,41 @@ export default function Orders() {
                         <div className="mt-4">
                           <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">Catatan</p>
                           <p className="mt-1 text-sm text-ink/70">{order.notes}</p>
+                        </div>
+                      )}
+
+                      {order.source === 'kasir' && (
+                        <div className="mt-4 rounded-lg bg-teal-50 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Pembayaran</p>
+                          <p className="mt-1 text-sm text-ink/70">
+                            {PAYMENT_TYPES.find((p) => p.value === order.payment_type)?.label ?? '-'} ·{' '}
+                            {formatRupiah(order.amount_paid)} dibayar
+                            {order.payment_type === 'dp' && (
+                              <> · Sisa {formatRupiah(order.total - (order.amount_paid ?? 0))}</>
+                            )}
+                          </p>
+                          {order.proof_path && (
+                            <div className="mt-2">
+                              {proofUrls[order.id] ? (
+                                <a href={proofUrls[order.id]} target="_blank" rel="noreferrer">
+                                  <img
+                                    src={proofUrls[order.id]}
+                                    alt="Bukti transaksi"
+                                    className="h-32 w-32 rounded-lg object-cover"
+                                  />
+                                </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewProof(order)}
+                                  disabled={loadingProofId === order.id}
+                                  className="text-sm font-medium text-brand hover:underline disabled:opacity-50"
+                                >
+                                  {loadingProofId === order.id ? 'Memuat...' : 'Lihat Bukti Transaksi'}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 

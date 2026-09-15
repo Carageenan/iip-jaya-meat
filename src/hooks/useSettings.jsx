@@ -12,8 +12,8 @@ export function SettingsProvider({ children }) {
       const data = await settingsApi.getSettings()
       setSettings(data)
     } catch {
-      // Tabel settings belum ada / gagal dimuat -> anggap mode online order mati (aman, sesuai default).
-      setSettings({ online_ordering_enabled: false })
+      // Tabel settings belum ada / gagal dimuat -> anggap semua fitur mati (aman, sesuai default).
+      setSettings({ online_ordering_enabled: false, cashier_enabled: false })
     } finally {
       setLoading(false)
     }
@@ -24,9 +24,10 @@ export function SettingsProvider({ children }) {
   }, [refetch])
 
   const onlineOrderingEnabled = settings?.online_ordering_enabled ?? false
+  const cashierEnabled = settings?.cashier_enabled ?? false
 
   return (
-    <SettingsContext.Provider value={{ onlineOrderingEnabled, loading, refetch }}>
+    <SettingsContext.Provider value={{ onlineOrderingEnabled, cashierEnabled, loading, refetch }}>
       {children}
     </SettingsContext.Provider>
   )
